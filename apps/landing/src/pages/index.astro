@@ -1825,6 +1825,15 @@ const steps = [
         submitButton.textContent = 'Email envoyé';
         status.textContent = 'Consultez votre boîte email et cliquez sur le lien de confirmation.';
         status.classList.add('is-success');
+        // Mesurer uniquement les demandes acceptées, sans transmettre l’adresse email.
+        const analyticsWindow = window as Window & {
+          gtag?: (command: string, event: string, parameters: Record<string, string>) => void;
+        };
+        try {
+          analyticsWindow.gtag?.('event', 'generate_lead', { form_name: 'launch_waitlist' });
+        } catch {
+          // Une erreur de mesure ne doit pas faire échouer l’inscription.
+        }
       } catch (error) {
         const turnstileWindow = window as Window & {
           turnstile?: { reset: (container?: string | HTMLElement) => void };

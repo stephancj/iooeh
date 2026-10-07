@@ -306,6 +306,8 @@ jobs:
       - run: cd apps/landing && npm run build
         env:
           PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.PUBLIC_TURNSTILE_SITE_KEY }}
+          PUBLIC_GOOGLE_ANALYTICS_ID: ${{ vars.PUBLIC_GOOGLE_ANALYTICS_ID }}
+          PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.PUBLIC_GOOGLE_SITE_VERIFICATION }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -358,6 +360,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_HOST }} "
             cd /opt/trackeo &&
             git fetch origin main &&
+            trackeo_runtime_changed=\$(git diff --name-only HEAD origin/main -- docker-compose.yml infra/postgres infra/traccar | wc -l) &&
             git reset --hard origin/main &&
             grep -q '^DB_PASS=.' apps/api/.env &&
             touch .env &&
@@ -372,9 +375,11 @@ jobs:
               echo 'Unable to locate the app.iooeh.com nginx vhost' >&2 && exit 1;
             fi &&
             nginx -t && systemctl reload nginx &&
-            docker compose pull &&
-            docker ps -a --filter 'name=trackeo-traccar' -q | xargs -r docker rm -f &&
-            docker compose up -d
+            if [ \"\$trackeo_runtime_changed\" -gt 0 ]; then
+              docker compose pull &&
+              docker ps -a --filter 'name=trackeo-traccar' -q | xargs -r docker rm -f &&
+              docker compose up -d;
+            fi
           "
 
       - name: Health check

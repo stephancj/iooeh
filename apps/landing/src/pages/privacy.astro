@@ -49,6 +49,17 @@ import '../styles/utility-pages.css';
             </ul>
           </section>
 
+          {import.meta.env.PUBLIC_GOOGLE_ANALYTICS_ID?.trim() && (
+            <section class="utility-section">
+              <h2>Mesure d’audience de la landing</h2>
+              <p>
+                Nous utilisons Google Analytics pour mesurer les visites et comprendre l’utilisation
+                des pages publiques de ce site. Google Analytics peut déposer des cookies de mesure
+                d’audience. Les pages de confirmation d’email et de gestion du compte ne sont pas suivies.
+              </p>
+            </section>
+          )}
+
           <section class="utility-section utility-contact">
             <p class="utility-contact-label">Vos données</p>
             <h2>Une question ou une demande concernant vos informations&nbsp;?</h2>
