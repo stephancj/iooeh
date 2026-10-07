@@ -36,6 +36,7 @@ if (googleAnalyticsId && !/^G-[A-Z0-9]+$/.test(googleAnalyticsId)) {
         <script is:inline define:vars={{ googleAnalyticsId }}>
           window.dataLayer = window.dataLayer || [];
           function gtag() { window.dataLayer.push(arguments); }
+          window.gtag = gtag;
           gtag('js', new Date());
           gtag('config', googleAnalyticsId);
         </script>
