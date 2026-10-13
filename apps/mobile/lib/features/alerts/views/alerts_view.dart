@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'dart:math' as math;
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/map_attribution.dart';
+import '../../../core/widgets/app_tile_layer.dart';
 import '../../../core/widgets/product_ui.dart';
 import '../providers/alerts_provider.dart';
 import '../providers/geofences_provider.dart';
@@ -426,12 +428,8 @@ class _AlertsViewState extends ConsumerState<AlertsView> {
                         ),
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate: AppMapTiles.positron,
-                          subdomains: AppMapTiles.subdomains,
-                          retinaMode: true,
-                          userAgentPackageName: 'mg.trackeo.app',
-                        ),
+                        AppTileLayer(urlTemplate: AppMapTiles.positron),
+                        const MapAttribution(alignment: Alignment.topRight),
                         CircleLayer(
                           circles: [
                             CircleMarker(

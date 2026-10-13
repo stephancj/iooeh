@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/map_attribution.dart';
+import '../../../core/widgets/app_tile_layer.dart';
 import '../../../core/theme/speed_palette.dart';
 import '../../../core/providers/geocoding_provider.dart';
 import '../../../core/utils/app_time.dart';
@@ -38,12 +40,12 @@ class _HistoryViewState extends ConsumerState<HistoryView> {
   static const double _panelRatio = 0.52;
 
   // Styles de carte cyclés par le bouton calques.
-  static const _tiles = [
-    AppMapTiles.positron,
-    AppMapTiles.voyager,
-    AppMapTiles.darkMatter,
-  ];
-  static const _tileNames = ['Clair', 'Voyager', 'Sombre'];
+  static const _tiles = AppMapTiles.hasCartoApiKey
+      ? [AppMapTiles.positron, AppMapTiles.voyager, AppMapTiles.darkMatter]
+      : [AppMapTiles.openStreetMap, AppMapTiles.satellite];
+  static const _tileNames = AppMapTiles.hasCartoApiKey
+      ? ['Clair', 'Voyager', 'Sombre']
+      : ['Plan', 'Satellite'];
   int _tileIndex = 0;
 
   // Trajet sélectionné (1-based) — met en évidence sa polyligne et zoome dessus.
@@ -114,12 +116,7 @@ class _HistoryViewState extends ConsumerState<HistoryView> {
                   initialZoom: 12,
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate: _tiles[_tileIndex],
-                    subdomains: AppMapTiles.subdomains,
-                    retinaMode: true,
-                    userAgentPackageName: 'mg.trackeo.app',
-                  ),
+                  AppTileLayer(urlTemplate: _tiles[_tileIndex]),
                   // Une polyligne (dégradé de vitesse) par trajet — pas de ligne
                   // factice à travers les arrêts.
                   if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
@@ -129,6 +126,11 @@ class _HistoryViewState extends ConsumerState<HistoryView> {
                       ..._dayMarkers(_day),
                       ..._playbackMarkers(positions),
                     ],
+                  ),
+                  MapAttribution(
+                    satellite: _tiles[_tileIndex] == AppMapTiles.satellite,
+                    alignment: Alignment.topRight,
+                    padding: EdgeInsets.only(top: topPad + 62, right: 6),
                   ),
                 ],
               ),

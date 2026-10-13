@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/map_attribution.dart';
+import '../../../core/widgets/app_tile_layer.dart';
 import '../../../core/providers/geocoding_provider.dart';
 import '../providers/geofences_provider.dart';
 import '../models/geofence_model.dart';
@@ -411,11 +413,12 @@ class _CreateGeofenceViewState extends ConsumerState<CreateGeofenceView>
               onTap: _onMapTap,
             ),
             children: [
-              TileLayer(
-                urlTemplate: _tiles[_tileIndex],
-                subdomains: _tileIndex == 0 ? AppMapTiles.subdomains : const [],
-                retinaMode: _tileIndex == 0,
-                userAgentPackageName: 'mg.trackeo.app',
+              AppTileLayer(urlTemplate: _tiles[_tileIndex]),
+              MapAttribution(
+                satellite: _tileIndex == 1,
+                alignment: Alignment.bottomLeft,
+                padding:
+                    EdgeInsets.only(bottom: bottomPanelHeight + 4, left: 6),
               ),
               // Geofence circle
               CircleLayer(

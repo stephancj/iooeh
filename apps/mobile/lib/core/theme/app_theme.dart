@@ -149,34 +149,44 @@ class AppMotion {
       MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 }
 
-/// URLs des tuiles cartographiques.
-///
-/// CartoDB Dark Matter — map principale (fleet tracking, markers pop)
-/// CartoDB Positron    — maps de détail (historique, geofences, prévisualisations)
+/// Fonds de carte : OpenStreetMap par défaut, CARTO si une clé est configurée.
 class AppMapTiles {
   AppMapTiles._();
 
-  /// CartoDB Dark Matter — fond sombre premium, sans clé API.
-  static const String darkMatter =
-      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  /// Configurer avec --dart-define=CARTO_BASEMAP_API_KEY=... au build Flutter.
+  static const String cartoApiKey =
+      String.fromEnvironment('CARTO_BASEMAP_API_KEY');
+  static const bool hasCartoApiKey = cartoApiKey != '';
 
-  /// CartoDB Voyager — style moderne équilibré, ni trop clair ni trop sombre.
-  static const String voyager =
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  static const String openStreetMap =
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  /// CartoDB Positron — fond très clair, minimal, sans clé API.
-  static const String positron =
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  static const String darkMatter = hasCartoApiKey
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=$cartoApiKey'
+      : openStreetMap;
 
-  /// Esri World Imagery — imagerie satellite, sans clé API. Pas de sous-domaines
-  /// ni de support retina ({r}) ; ordre des tuiles {z}/{y}/{x}.
+  static const String voyager = hasCartoApiKey
+      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=$cartoApiKey'
+      : openStreetMap;
+
+  static const String positron = hasCartoApiKey
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=$cartoApiKey'
+      : openStreetMap;
+
+  /// Esri World Imagery — ordre des tuiles {z}/{y}/{x}, sans retina.
   static const String satellite =
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-  static const List<String> subdomains = ['a', 'b', 'c', 'd'];
+  static const List<String> subdomains =
+      hasCartoApiKey ? ['a', 'b', 'c', 'd'] : [];
 
-  /// Attribution légale requise par CartoDB.
-  static const String attribution = '© CartoDB  ©  OpenStreetMap contributors';
+  static bool isCarto(String url) => url.contains('basemaps.cartocdn.com/');
+
+  static const String attribution = hasCartoApiKey
+      ? '© OpenStreetMap contributors, © CARTO'
+      : '© OpenStreetMap contributors';
+  static const String satelliteAttribution =
+      '© Esri, Maxar, Earthstar Geographics';
 }
 
 class AppTheme {

@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/map_attribution.dart';
+import '../../../core/widgets/app_tile_layer.dart';
 import '../../history/views/history_view.dart';
 import '../../../core/navigation/app_shell.dart';
 import '../../../core/navigation/trackeo_route.dart';
@@ -229,7 +231,8 @@ class _MapViewState extends ConsumerState<MapView>
       };
 
   void _cycleTiles() {
-    setState(() => _tileStyleIndex = (_tileStyleIndex + 1) % 3);
+    setState(() => _tileStyleIndex =
+        (_tileStyleIndex + 1) % (AppMapTiles.hasCartoApiKey ? 3 : 2));
   }
 
   /// Sélectionne et recadre l'unique véhicule (tap sur la pastille du haut).
@@ -308,19 +311,20 @@ class _MapViewState extends ConsumerState<MapView>
               },
             ),
             children: [
-              TileLayer(
-                urlTemplate: _tileUrl,
-                subdomains: _tileStyleIndex == 1
-                    ? const <String>[]
-                    : AppMapTiles.subdomains,
-                retinaMode: _tileStyleIndex != 1,
-                userAgentPackageName: 'mg.trackeo.app',
-              ),
+              AppTileLayer(urlTemplate: _tileUrl),
               MarkerLayer(
                 markers: (isSingle ? allVehicles : vehicles)
                     .where((v) => v.position != null)
                     .map((v) => _buildMarker(v, selected))
                     .toList(),
+              ),
+              MapAttribution(
+                satellite: _tileStyleIndex == 1,
+                alignment: Alignment.bottomLeft,
+                padding: EdgeInsets.only(
+                  left: 6,
+                  bottom: selected != null ? _cardHeight + 8 : 6,
+                ),
               ),
             ],
           ),

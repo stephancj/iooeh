@@ -3,6 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/map_attribution.dart';
+import '../../../../core/widgets/app_tile_layer.dart';
 import '../../../../core/theme/speed_palette.dart';
 import '../../models/alert_model.dart';
 import '../../providers/alert_track_provider.dart';
@@ -117,12 +119,8 @@ class _AlertTraceMapState extends ConsumerState<AlertTraceMap> {
         ),
       ),
       children: [
-        TileLayer(
-          urlTemplate: AppMapTiles.positron,
-          subdomains: AppMapTiles.subdomains,
-          retinaMode: true,
-          userAgentPackageName: 'mg.trackeo.app',
-        ),
+        AppTileLayer(urlTemplate: AppMapTiles.positron),
+        const MapAttribution(alignment: Alignment.topRight),
         if (pts.length >= 2)
           PolylineLayer(
             polylines: [

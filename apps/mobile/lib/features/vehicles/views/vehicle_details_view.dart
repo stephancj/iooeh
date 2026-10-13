@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/map_attribution.dart';
+import '../../../core/widgets/app_tile_layer.dart';
 import '../../../core/widgets/product_ui.dart';
 import '../models/vehicle_model.dart';
 import '../providers/vehicles_provider.dart';
@@ -798,12 +800,8 @@ class _MapCard extends StatelessWidget {
                   ),
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate: AppMapTiles.positron,
-                    subdomains: AppMapTiles.subdomains,
-                    retinaMode: true,
-                    userAgentPackageName: 'mg.trackeo.app',
-                  ),
+                  AppTileLayer(urlTemplate: AppMapTiles.positron),
+                  const MapAttribution(alignment: Alignment.topRight),
                   MarkerLayer(
                     markers: [
                       Marker(
