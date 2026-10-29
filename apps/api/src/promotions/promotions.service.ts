@@ -118,13 +118,8 @@ export class PromotionsService {
         break;
       }
 
-      case CouponRewardType.VEHICLE_QUOTA_BONUS: {
-        const bonus = Math.round(Number(coupon.rewardValue)) || 1;
-        sub.vehicleLimit += bonus;
-        message = `Votre limite de véhicules autorisés a été augmentée de +${bonus} véhicule(s) !`;
-        metadata.newVehicleLimit = sub.vehicleLimit;
-        break;
-      }
+      case CouponRewardType.VEHICLE_QUOTA_BONUS:
+        throw new BadRequestException('Ce type de coupon n’est plus disponible.');
 
       case CouponRewardType.PERCENTAGE_DISCOUNT:
       case CouponRewardType.FIXED_DISCOUNT:
@@ -350,6 +345,9 @@ export class PromotionsService {
 
   // ── Admin Endpoints ────────────────────────────────────────────────────────
   async createCoupon(dto: CreateCouponDto) {
+    if (dto.rewardType === CouponRewardType.VEHICLE_QUOTA_BONUS) {
+      throw new BadRequestException('Ce type de coupon n’est plus disponible.');
+    }
     const existing = await this.couponRepo.findOne({ where: { code: dto.code.trim().toUpperCase() } });
     if (existing) throw new ConflictException('Un coupon avec ce code existe déjà.');
 

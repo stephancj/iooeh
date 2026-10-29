@@ -452,7 +452,6 @@ class _PlanSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vehicles = rights.limit('max_vehicles');
     final history = rights.limit('history_retention_days');
     return InkWell(
       onTap: onTap,
@@ -480,7 +479,7 @@ class _PlanSurface extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '$vehicles véhicule${vehicles > 1 ? 's' : ''} · $history jours d’historique',
+                    '$history jours d’historique',
                     style: AppTextStyles.bodySecondary,
                   ),
                 ],

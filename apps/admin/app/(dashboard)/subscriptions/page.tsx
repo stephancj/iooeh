@@ -23,7 +23,6 @@ type SubscriptionRow = {
     planId: string | null;
     plan: string;
     status: SubscriptionStatus;
-    vehicleLimit: number;
     nextBillingDate: string | null;
     trialEndsAt: string | null;
     notes: string | null;
@@ -128,16 +127,15 @@ function SubscriptionsPageContent() {
         <div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un client…" className="pl-9" /></div>
         <div className="flex flex-wrap gap-2">{(["all", "trial", "active", "suspended", "cancelled"] as const).map((status) => <Button key={status} size="sm" variant={filter === status ? "default" : "outline"} onClick={() => setFilter(status)}>{status === "all" ? "Tous" : statusLabels[status]}</Button>)}</div>
       </div>
-      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="px-5 py-3">Client</th><th className="px-5 py-3">Plan</th><th className="px-5 py-3">Statut</th><th className="px-5 py-3">Véhicules</th><th className="px-5 py-3">Échéance</th><th className="px-5 py-3"></th></tr></thead><tbody className="divide-y">
-        {loading ? <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Chargement des abonnements…</td></tr> : filtered.map((row) => <tr key={row.userId} className="transition-colors hover:bg-muted/30">
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="px-5 py-3">Client</th><th className="px-5 py-3">Plan</th><th className="px-5 py-3">Statut</th><th className="px-5 py-3">Échéance</th><th className="px-5 py-3"></th></tr></thead><tbody className="divide-y">
+        {loading ? <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Chargement des abonnements…</td></tr> : filtered.map((row) => <tr key={row.userId} className="transition-colors hover:bg-muted/30">
           <td className="px-5 py-4"><div className="font-semibold">{row.name || "Sans nom"}</div><div className="text-xs text-muted-foreground">{row.email}</div></td>
           <td className="px-5 py-4"><div className="font-semibold text-trackeo-dark">{row.subscription?.planDetails?.name ?? row.subscription?.plan ?? "Free"}</div><div className="text-xs text-muted-foreground">{row.subscription?.planDetails ? `${Number(row.subscription.planDetails.priceMonthly).toLocaleString("fr-FR")} ${row.subscription.planDetails.currency}/mois` : "Plan par défaut"}</div></td>
           <td className="px-5 py-4"><StatusBadge status={row.subscription?.status ?? "trial"} /></td>
-          <td className="px-5 py-4 font-medium">{row.subscription?.vehicleLimit ?? 1}</td>
           <td className="px-5 py-4 text-muted-foreground">{formatDate(row.subscription?.status === "trial" ? row.subscription?.trialEndsAt : row.subscription?.nextBillingDate)}</td>
           <td className="px-5 py-4 text-right"><Button size="sm" variant="outline" onClick={() => openEditor(row)}>Gérer</Button></td>
         </tr>)}
-        {!loading && filtered.length === 0 && <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Aucun abonnement trouvé.</td></tr>}
+        {!loading && filtered.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Aucun abonnement trouvé.</td></tr>}
       </tbody></table></div>
 
       <div className="flex items-center justify-between p-4 border-t border-border">

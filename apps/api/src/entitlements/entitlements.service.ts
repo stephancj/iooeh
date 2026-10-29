@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Subscription, SubscriptionStatus } from '../admin/subscription.entity';
-import { DeviceAssignment } from '../admin/device-assignment.entity';
 import { Geofence } from '../geofences/entities/geofence.entity';
 import { Feature } from './feature.entity';
 import { PlanFeature } from './plan-feature.entity';
@@ -45,8 +44,6 @@ export class EntitlementsService {
     private readonly featureRepo: Repository<Feature>,
     @InjectRepository(PlanFeature)
     private readonly planFeatureRepo: Repository<PlanFeature>,
-    @InjectRepository(DeviceAssignment)
-    private readonly assignmentRepo: Repository<DeviceAssignment>,
     @InjectRepository(Geofence)
     private readonly geofenceRepo: Repository<Geofence>,
   ) {}
@@ -67,7 +64,6 @@ export class EntitlementsService {
       planId: freePlan.id,
       plan: freePlan.code,
       status: SubscriptionStatus.TRIAL,
-      vehicleLimit: 1,
       trialEndsAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
       nextBillingDate: null,
       notes: null,
@@ -165,18 +161,6 @@ export class EntitlementsService {
     if (from.getTime() < earliest) {
       throw new ForbiddenException(
         `Votre abonnement permet de consulter ${days} jour(s) d’historique.`,
-      );
-    }
-  }
-
-  async assertCanAddVehicle(userId: number): Promise<void> {
-    const [limit, count] = await Promise.all([
-      this.getNumber(userId, 'max_vehicles'),
-      this.assignmentRepo.count({ where: { userId } }),
-    ]);
-    if (count >= limit) {
-      throw new ForbiddenException(
-        `Limite de ${limit} véhicule(s) atteinte pour votre abonnement.`,
       );
     }
   }

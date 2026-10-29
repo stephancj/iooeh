@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/vehicle_model.dart';
 import '../providers/vehicles_provider.dart';
-import '../../entitlements/providers/entitlements_provider.dart';
 
 class AddVehicleView extends ConsumerStatefulWidget {
   const AddVehicleView({super.key});
@@ -33,15 +32,6 @@ class _AddVehicleViewState extends ConsumerState<AddVehicleView> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final rights = await ref.read(entitlementsProvider.future);
-    if (!mounted) return;
-    final vehicleCount = ref.read(vehiclesProvider).valueOrNull?.length ?? 0;
-    final limit = rights.limit('max_vehicles');
-    if (vehicleCount >= limit) {
-      setState(() => _error =
-          'Votre plan ${rights.planName} autorise $limit véhicule${limit > 1 ? 's' : ''}.');
-      return;
-    }
     FocusScope.of(context).unfocus();
     setState(() {
       _isSubmitting = true;

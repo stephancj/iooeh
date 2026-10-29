@@ -194,15 +194,6 @@ export class AdminService {
       if (rows.length) await manager.save(PlanFeature, rows);
     });
 
-    const maxVehicles = rows.find(
-      (row) => featureMap.get(row.featureId)?.code === 'max_vehicles',
-    );
-    if (maxVehicles && typeof maxVehicles.value === 'number') {
-      await this.subscriptionRepo.update(
-        { planId },
-        { vehicleLimit: maxVehicles.value },
-      );
-    }
     const subscribers = await this.subscriptionRepo.find({ where: { planId } });
     subscribers.forEach((subscription) =>
       this.entitlementsService.invalidate(subscription.userId),
@@ -613,15 +604,7 @@ export class AdminService {
         throw new BadRequestException('Plan invalide ou inactif.');
       sub.planId = targetPlan.id;
       sub.plan = targetPlan.code;
-      const allFeatures = await this.planFeatureRepo.find({
-        where: { planId: targetPlan.id },
-        relations: { feature: true },
-      });
-      const vehicleGrant = allFeatures.find(
-        (item) => item.feature?.code === 'max_vehicles',
-      );
-      sub.vehicleLimit =
-        typeof vehicleGrant?.value === 'number' ? vehicleGrant.value : 0;
+
     }
     if (data.status) sub.status = data.status;
     if (data.nextBillingDate !== undefined)

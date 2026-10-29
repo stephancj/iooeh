@@ -228,7 +228,6 @@ export default function PromotionsPage() {
                   <option value="FIXED_DISCOUNT">Réduction en Montant Fixe (MGA)</option>
                   <option value="FREE_PLAN_GIFT">Plan Offert pour une Durée (Free Plan Gift)</option>
                   <option value="FREE_SUBSCRIPTION_DAYS">Extension Durée Abonnement Actuel (Jours)</option>
-                  <option value="VEHICLE_QUOTA_BONUS">Bonus Quota Véhicules (+N Véhicules)</option>
                 </select>
               </div>
 

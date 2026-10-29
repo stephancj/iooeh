@@ -105,8 +105,6 @@ export class VehiclesService {
       }
     }
 
-    await this.entitlementsService.assertCanAddVehicle(userId);
-
     if (!device) {
       if (!/^\d{15}$/.test(serialNumber)) {
         throw new BadRequestException(

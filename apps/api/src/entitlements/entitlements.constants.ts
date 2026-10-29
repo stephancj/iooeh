@@ -1,6 +1,5 @@
 export const FEATURE_CODES = {
   LIVE_TRACKING: 'live_tracking',
-  MAX_VEHICLES: 'max_vehicles',
   FLEET_OVERVIEW: 'fleet_overview',
   VEHICLE_TELEMETRY: 'vehicle_telemetry',
   HISTORY: 'history',

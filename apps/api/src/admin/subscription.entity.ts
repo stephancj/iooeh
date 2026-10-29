@@ -19,13 +19,6 @@ export enum SubscriptionStatus {
   CANCELLED = 'cancelled',
 }
 
-/** Limites de véhicules par plan */
-export const PLAN_VEHICLE_LIMITS: Record<SubscriptionPlan, number> = {
-  [SubscriptionPlan.FREE]: 1,
-  [SubscriptionPlan.BASIC]: 5,
-  [SubscriptionPlan.PREMIUM]: 999,
-};
-
 @Entity({ name: 'subscriptions' })
 export class Subscription {
   @PrimaryGeneratedColumn('uuid')
@@ -52,10 +45,6 @@ export class Subscription {
     default: SubscriptionStatus.TRIAL,
   })
   status: SubscriptionStatus;
-
-  /** Nombre max de véhicules autorisés pour ce plan */
-  @Column({ name: 'vehicle_limit', default: 1 })
-  vehicleLimit: number;
 
   /** Prochain échéance de facturation */
   @Column({ name: 'next_billing_date', type: 'timestamptz', nullable: true })

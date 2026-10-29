@@ -173,7 +173,7 @@ export default function FeaturesPage() {
           <DialogHeader><DialogTitle>{editing ? "Modifier la fonctionnalité" : "Créer une fonctionnalité"}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <Field label="Nom"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Code immuable"><Input disabled={!!editing} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="ex. max_vehicles" /></Field>
+            <Field label="Code immuable"><Input disabled={!!editing} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="ex. history_retention_days" /></Field>
             <Field label="Catégorie"><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></Field>
             <Field label="Type de valeur">
               <select value={form.valueType} onChange={(e) => setForm({ ...form, valueType: e.target.value as FeatureValueType })} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
