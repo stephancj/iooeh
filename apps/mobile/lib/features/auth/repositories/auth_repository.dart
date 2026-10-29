@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../models/auth_model.dart';
 
 abstract class AuthRepository {
+  Future<AuthUser> getCurrentUser();
   Future<AuthResponse> login(String identifier, String password);
 
   Future<RegistrationResponse> register({
@@ -41,6 +42,12 @@ abstract class AuthRepository {
 class RemoteAuthRepository implements AuthRepository {
   final Dio _dio;
   const RemoteAuthRepository(this._dio);
+
+  @override
+  Future<AuthUser> getCurrentUser() async {
+    final response = await _dio.get<Map<String, dynamic>>('/auth/me');
+    return AuthUser.fromJson(response.data!);
+  }
 
   @override
   Future<AuthResponse> login(String identifier, String password) async {

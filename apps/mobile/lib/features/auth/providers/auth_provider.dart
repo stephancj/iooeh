@@ -15,16 +15,29 @@ class AuthState {
   final AuthUser? user;
   final String? token;
   final String? error;
+  final bool userDetailsLoaded;
 
-  const AuthState._({required this.status, this.user, this.token, this.error});
+  const AuthState._(
+      {required this.status,
+      this.user,
+      this.token,
+      this.error,
+      this.userDetailsLoaded = false});
 
   const AuthState.loading() : this._(status: AuthStatus.loading);
 
   const AuthState.unauthenticated({String? error})
       : this._(status: AuthStatus.unauthenticated, error: error);
 
-  AuthState.authenticated({required String token, required AuthUser user})
-      : this._(status: AuthStatus.authenticated, token: token, user: user);
+  AuthState.authenticated(
+      {required String token,
+      required AuthUser user,
+      bool userDetailsLoaded = true})
+      : this._(
+            status: AuthStatus.authenticated,
+            token: token,
+            user: user,
+            userDetailsLoaded: userDetailsLoaded);
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
   bool get isLoading => status == AuthStatus.loading;
@@ -55,7 +68,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         phone: session.phone,
         role: 'user',
       );
-      state = AuthState.authenticated(token: session.token!, user: user);
+      state = AuthState.authenticated(
+          token: session.token!, user: user, userDetailsLoaded: false);
+      try {
+        final currentUser = await _repo.getCurrentUser();
+        if (state.token == session.token) {
+          state =
+              AuthState.authenticated(token: session.token!, user: currentUser);
+        }
+      } catch (_) {
+        // Conserver la session locale ; ne pas présenter les réglages par défaut
+        // comme des préférences confirmées par le serveur.
+      }
       // Ré-enregistre l'utilisateur dans OneSignal après redémarrage de l'app
       if (user.id != 0) _linkOneSignal(user.id);
     } else {

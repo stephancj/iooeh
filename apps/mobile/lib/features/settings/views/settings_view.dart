@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_version.dart';
 import '../../../core/navigation/trackeo_route.dart';
@@ -9,6 +10,8 @@ import '../../auth/providers/auth_provider.dart';
 import '../../entitlements/models/entitlements_model.dart';
 import '../../entitlements/providers/entitlements_provider.dart';
 import '../../payments/views/payments_view.dart';
+import '../../vehicles/providers/vehicles_provider.dart';
+import '../../vehicles/views/add_vehicle_view.dart';
 import '../../promotions/redeem_dialog.dart';
 import '../../promotions/referral_view.dart';
 import 'alert_settings_view.dart';
@@ -85,145 +88,225 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     final user = ref.watch(authProvider).user;
     final displayName = user?.displayName ?? '';
     final rightsAsync = ref.watch(entitlementsProvider);
+    final vehiclesAsync = ref.watch(vehiclesProvider);
+    final rights = rightsAsync.valueOrNull;
+    final disabledAlerts = user == null ||
+            !ref.watch(authProvider).userDetailsLoaded ||
+            rights == null ||
+            !user.alertsEnabled
+        ? null
+        : <bool>[
+            if (rights.has('low_battery_alerts')) user.alertLowBattery,
+            if (rights.has('speed_alerts')) user.alertSpeedLimit,
+            if (rights.has('push_notifications')) user.alertViaPush,
+            if (rights.has('whatsapp_notifications')) user.alertViaWhatsapp,
+            user.alertViaEmail,
+          ].where((enabled) => !enabled).length;
 
     return SingleChildScrollView(
-        child: ProductPage(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ProfileSurface(
-                  displayName: displayName,
-                  email: user?.email ?? '',
-                  phone: user?.phone,
-                  editing: _isEditing,
-                  saving: _isSaving,
-                  nameController: _nameController,
-                  phoneController: _phoneController,
-                  onSave: _saveProfile,
-                ),
-                const SizedBox(height: 24),
-                const ProductSectionHeader(
-                  title: 'Votre protection',
-                  subtitle: 'Plan actuel et services essentiels.',
-                ),
-                const SizedBox(height: 10),
-                ref.watch(entitlementsProvider).when(
-                      data: (rights) => _PlanSurface(
-                        rights: rights,
-                        onTap: () => Navigator.push(
-                          context,
-                          TrackeoRoute(builder: (_) => const PaymentsView()),
+      child: ProductPage(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ProfileSurface(
+                displayName: displayName,
+                email: user?.email ?? '',
+                phone: user?.phone,
+                editing: _isEditing,
+                saving: _isSaving,
+                nameController: _nameController,
+                phoneController: _phoneController,
+                onSave: _saveProfile,
+              ),
+              const SizedBox(height: 24),
+              const ProductSectionHeader(
+                title: 'Votre protection',
+                subtitle: 'Plan actuel et services essentiels.',
+              ),
+              const SizedBox(height: 10),
+              vehiclesAsync.when(
+                data: (vehicles) => vehicles.isEmpty
+                    ? ProductSurface(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Votre véhicule n’est pas encore protégé',
+                                style: AppTextStyles.cardTitle),
+                            const SizedBox(height: 8),
+                            Text('Ajoutez votre véhicule pour commencer.',
+                                style: AppTextStyles.bodySecondary),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: () => Navigator.push(
+                                  context,
+                                  TrackeoRoute(
+                                      builder: (_) => const AddVehicleView())),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Ajouter mon véhicule'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : rightsAsync.when(
+                        data: (rights) => _PlanSurface(
+                          rights: rights,
+                          onTap: () => Navigator.push(
+                            context,
+                            TrackeoRoute(builder: (_) => const PaymentsView()),
+                          ),
+                        ),
+                        loading: () => const ProductSurface(
+                          child: LinearProgressIndicator(minHeight: 2),
+                        ),
+                        error: (_, __) => _SettingsTile(
+                          icon: Icons.workspace_premium_outlined,
+                          title: 'Abonnement',
+                          subtitle: 'Consulter les plans disponibles',
+                          onTap: () => Navigator.push(
+                            context,
+                            TrackeoRoute(builder: (_) => const PaymentsView()),
+                          ),
                         ),
                       ),
-                      loading: () => const ProductSurface(
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
-                      error: (_, __) => _SettingsTile(
-                        icon: Icons.workspace_premium_outlined,
-                        title: 'Abonnement',
-                        subtitle: 'Consulter les plans disponibles',
-                        onTap: () => Navigator.push(
-                          context,
-                          TrackeoRoute(builder: (_) => const PaymentsView()),
-                        ),
-                      ),
-                    ),
-                const SizedBox(height: 24),
-                if ((rightsAsync.valueOrNull?.has('referral_program') ?? true) ||
-                    (rightsAsync.valueOrNull?.has('coupon_redemption') ?? true)) ...[
-                  const ProductSectionHeader(
-                    title: 'Promotions & Avantages',
-                    subtitle: 'Parrainez des amis ou utilisez un code promo.',
-                  ),
-                  const SizedBox(height: 10),
-                  ProductSurface(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        if (rightsAsync.valueOrNull?.has('referral_program') ?? true)
-                          _SettingsTile(
-                            icon: Icons.card_giftcard_rounded,
-                            title: 'Parrainer un ami',
-                            subtitle: 'Offrez 20% & gagnez 1 mois gratuit',
-                            onTap: () => ReferralView.navigateTo(context),
-                          ),
-                        if ((rightsAsync.valueOrNull?.has('referral_program') ?? true) &&
-                            (rightsAsync.valueOrNull?.has('coupon_redemption') ?? true))
-                          const Divider(height: 1, indent: 68),
-                        if (rightsAsync.valueOrNull?.has('coupon_redemption') ?? true)
-                          _SettingsTile(
-                            icon: Icons.confirmation_number_outlined,
-                            title: 'Utiliser un code promo',
-                            subtitle: 'Débloquez vos réductions et avantages',
-                            onTap: () => RedeemDialog.show(context),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                loading: () => const ProductSurface(
+                    child: LinearProgressIndicator(minHeight: 2)),
+                error: (_, __) => _SettingsTile(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Véhicules indisponibles',
+                  subtitle: 'Appuyez pour réessayer',
+                  onTap: () => ref.invalidate(vehiclesProvider),
+                ),
+              ),
+              const SizedBox(height: 24),
+              if ((rightsAsync.valueOrNull?.has('referral_program') ?? true) ||
+                  (rightsAsync.valueOrNull?.has('coupon_redemption') ??
+                      true)) ...[
                 const ProductSectionHeader(
-                  title: 'Préférences',
-                  subtitle: 'Contrôlez la façon dont ioeh vous prévient.',
+                  title: 'Promotions & Avantages',
+                  subtitle: 'Parrainez des amis ou utilisez un code promo.',
                 ),
-                const SizedBox(height: 10),
-                ProductSurface(
-                  padding: EdgeInsets.zero,
-                  child: _SettingsTile(
-                    icon: Icons.notifications_active_outlined,
-                    title: 'Notifications et alertes',
-                    subtitle: 'Push, WhatsApp et seuils de sécurité',
-                    onTap: () => Navigator.push(
-                      context,
-                      TrackeoRoute(builder: (_) => const AlertSettingsView()),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const ProductSectionHeader(title: 'Compte'),
                 const SizedBox(height: 10),
                 ProductSurface(
                   padding: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      _SettingsTile(
-                        icon: Icons.delete_outline_rounded,
-                        iconColor: AppColors.statusAlert,
-                        iconBackground: AppColors.pastelRed,
-                        title: 'Supprimer mon compte',
-                        subtitle:
-                            'Effacer définitivement le compte et ses données',
-                        onTap: () => Navigator.push(
-                          context,
-                          TrackeoRoute(
-                              builder: (_) => const DeleteAccountView()),
+                      if (rightsAsync.valueOrNull?.has('referral_program') ??
+                          true)
+                        _SettingsTile(
+                          icon: Icons.card_giftcard_rounded,
+                          title: 'Parrainer un ami',
+                          subtitle: 'Offrez 20% & gagnez 1 mois gratuit',
+                          onTap: () => ReferralView.navigateTo(context),
                         ),
-                      ),
-                      const Divider(height: 1, indent: 68),
-                      _SettingsTile(
-                        icon: Icons.logout_rounded,
-                        iconColor: AppColors.statusAlert,
-                        iconBackground: AppColors.pastelRed,
-                        title: 'Se déconnecter',
-                        onTap: _showLogoutDialog,
-                      ),
+                      if ((rightsAsync.valueOrNull?.has('referral_program') ??
+                              true) &&
+                          (rightsAsync.valueOrNull?.has('coupon_redemption') ??
+                              true))
+                        const Divider(height: 1, indent: 68),
+                      if (rightsAsync.valueOrNull?.has('coupon_redemption') ??
+                          true)
+                        _SettingsTile(
+                          icon: Icons.confirmation_number_outlined,
+                          title: 'Utiliser un code promo',
+                          subtitle: 'Débloquez vos réductions et avantages',
+                          onTap: () => RedeemDialog.show(context),
+                        ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
-                Center(
-                  child: Text(
-                    'iooeh · Version $kAppVersion',
-                    style: AppTextStyles.labelSmall,
+                const SizedBox(height: 24),
+              ],
+              const ProductSectionHeader(
+                title: 'Préférences',
+                subtitle: 'Contrôlez la façon dont ioeh vous prévient.',
+              ),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: _SettingsTile(
+                  icon: Icons.notifications_active_outlined,
+                  title: 'Notifications et alertes',
+                  subtitle: user != null &&
+                          ref.watch(authProvider).userDetailsLoaded &&
+                          !user.alertsEnabled
+                      ? 'Alertes désactivées'
+                      : 'Push, WhatsApp et sécurité',
+                  badge: user != null &&
+                          ref.watch(authProvider).userDetailsLoaded &&
+                          !user.alertsEnabled
+                      ? 'Désactivées'
+                      : disabledAlerts != null && disabledAlerts > 0
+                          ? '$disabledAlerts désactivée${disabledAlerts > 1 ? 's' : ''}'
+                          : null,
+                  onTap: () => Navigator.push(
+                    context,
+                    TrackeoRoute(builder: (_) => const AlertSettingsView()),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 24),
+              const ProductSectionHeader(title: 'Aide'),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: _SettingsTile(
+                  icon: Icons.help_outline_rounded,
+                  title: 'Besoin d’aide ?',
+                  subtitle: 'Écrivez-nous',
+                  onTap: () async {
+                    final opened = await launchUrl(
+                        Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Écrivez-nous à contact@iooeh.com')));
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              const ProductSectionHeader(title: 'Compte'),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.delete_outline_rounded,
+                      iconColor: AppColors.statusAlert,
+                      iconBackground: AppColors.pastelRed,
+                      title: 'Supprimer mon compte',
+                      subtitle:
+                          'Effacer définitivement le compte et ses données',
+                      onTap: () => Navigator.push(
+                        context,
+                        TrackeoRoute(builder: (_) => const DeleteAccountView()),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 68),
+                    _SettingsTile(
+                      icon: Icons.logout_rounded,
+                      iconColor: AppColors.statusAlert,
+                      iconBackground: AppColors.pastelRed,
+                      title: 'Se déconnecter',
+                      onTap: _showLogoutDialog,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              Center(
+                child: Text(
+                  'iooeh · Version $kAppVersion',
+                  style: AppTextStyles.labelSmall,
+                ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
   }
 
   @override
@@ -234,7 +317,9 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
         title: const Text('Réglages'),
         actions: [
           TextButton(
-            onPressed: _isEditing ? _cancelEdit : () => setState(() => _isEditing = true),
+            onPressed: _isEditing
+                ? _cancelEdit
+                : () => setState(() => _isEditing = true),
             child: Text(_isEditing ? 'Annuler' : 'Modifier'),
           ),
           const SizedBox(width: 4),
@@ -277,7 +362,8 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               }),
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1, color: AppColors.divider),
+          const VerticalDivider(
+              width: 1, thickness: 1, color: AppColors.divider),
           Expanded(child: activePanel),
         ],
       ),
@@ -452,7 +538,14 @@ class _PlanSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final history = rights.limit('history_retention_days');
+    final remaining = rights.trialEndsAt?.difference(DateTime.now());
+    final days =
+        remaining == null ? null : (remaining.inSeconds / 86400).ceil();
+    final trial = rights.status == 'trial' && days != null
+        ? days > 0
+            ? 'Essai gratuit · $days jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}'
+            : 'Essai expiré'
+        : null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -470,16 +563,22 @@ class _PlanSurface extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Plan ${rights.planName}',
+                          'Abonnement du compte',
                           style: AppTextStyles.cardTitle,
                         ),
                       ),
-                      _StatusPill(status: rights.status),
+                      _StatusPill(
+                        status: rights.status == 'trial' &&
+                                days != null &&
+                                days <= 0
+                            ? 'expired'
+                            : rights.status,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '$history jours d’historique',
+                    trial ?? 'Plan ${rights.planName}',
                     style: AppTextStyles.bodySecondary,
                   ),
                 ],
@@ -504,6 +603,8 @@ class _StatusPill extends StatelessWidget {
       'active' => 'Actif',
       'trial' => 'Essai',
       'suspended' => 'Suspendu',
+      'expired' => 'Expiré',
+      'cancelled' => 'Annulé',
       _ => status,
     };
     return Container(
@@ -529,6 +630,7 @@ class _SettingsTile extends StatelessWidget {
   final Color iconBackground;
   final String title;
   final String? subtitle;
+  final String? badge;
   final VoidCallback onTap;
 
   const _SettingsTile({
@@ -537,6 +639,7 @@ class _SettingsTile extends StatelessWidget {
     this.iconBackground = AppColors.pastelGreen,
     required this.title,
     this.subtitle,
+    this.badge,
     required this.onTap,
   });
 
@@ -558,7 +661,28 @@ class _SettingsTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: AppTextStyles.cardTitle),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Text(title, style: AppTextStyles.cardTitle),
+                        if (badge != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.statusAlert.withValues(alpha: .1),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Text(badge!,
+                                style: AppTextStyles.label.copyWith(
+                                    color: AppColors.statusAlert,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                      ],
+                    ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 3),
                       Text(subtitle!, style: AppTextStyles.bodySecondary),
@@ -659,7 +783,7 @@ class _SidebarItem extends StatelessWidget {
     final color = isDestructive
         ? AppColors.statusAlert
         : (isActive ? AppColors.primaryDark : AppColors.textPrimary);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       child: InkWell(
@@ -668,14 +792,20 @@ class _SidebarItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isActive ? (isDestructive ? AppColors.statusAlert.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.1)) : Colors.transparent,
+            color: isActive
+                ? (isDestructive
+                    ? AppColors.statusAlert.withValues(alpha: 0.1)
+                    : AppColors.primary.withValues(alpha: 0.1))
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
               Icon(
                 isActive ? activeIcon : icon,
-                color: isDestructive ? AppColors.statusAlert : (isActive ? AppColors.primaryDark : AppColors.textHint),
+                color: isDestructive
+                    ? AppColors.statusAlert
+                    : (isActive ? AppColors.primaryDark : AppColors.textHint),
                 size: 22,
               ),
               const SizedBox(width: 16),

@@ -97,7 +97,7 @@ class _PaymentsViewState extends ConsumerState<PaymentsView> {
                   const ProductSectionHeader(
                     title: 'Choisir votre protection',
                     subtitle:
-                        'Changez de niveau selon le nombre de véhicules et vos besoins.',
+                        'Choisissez le niveau de protection adapté à vos besoins.',
                   ),
                   const SizedBox(height: 12),
                   if (plans.isEmpty)
