@@ -89,6 +89,7 @@ class _RedeemDialogState extends ConsumerState<RedeemDialog> {
       // Rafraîchir les droits utilisateur dans l'application
       ref.invalidate(entitlementsProvider);
       ref.invalidate(vehicleSubscriptionsProvider);
+      ref.invalidate(vehicleEntitlementsProvider);
     } catch (e) {
       if (!mounted) return;
       String msg = 'Code invalide ou expiré.';

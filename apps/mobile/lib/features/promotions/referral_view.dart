@@ -63,6 +63,7 @@ class ReferralView extends ConsumerWidget {
       ref.invalidate(referralInfoProvider);
       ref.invalidate(vehicleSubscriptionsProvider);
       ref.invalidate(entitlementsProvider);
+      ref.invalidate(vehicleEntitlementsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Récompense appliquée à ${selected['name']}')));

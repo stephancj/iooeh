@@ -19,7 +19,8 @@ import '../../security/providers/security_provider.dart';
 class VehicleDetailsView extends ConsumerWidget {
   final Vehicle vehicle;
   final bool isDesktopPanel;
-  const VehicleDetailsView({super.key, required this.vehicle, this.isDesktopPanel = false});
+  const VehicleDetailsView(
+      {super.key, required this.vehicle, this.isDesktopPanel = false});
 
   static const double _heroHeight = 220.0;
 
@@ -74,7 +75,8 @@ class VehicleDetailsView extends ConsumerWidget {
             leading: isDesktopPanel
                 ? const SizedBox.shrink()
                 : IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    icon:
+                        const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                     onPressed: () => Navigator.pop(context),
                   ),
             leadingWidth: isDesktopPanel ? 0 : 56,
@@ -327,10 +329,11 @@ class _SecurityActionsPanelState extends ConsumerState<_SecurityActionsPanel> {
         final incident = await repo.theft(widget.vehicle.id);
         if (mounted) {
           final cancel = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => const _TheftCountdownDialog(),
-          ) ?? false;
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => const _TheftCountdownDialog(),
+              ) ??
+              false;
           if (cancel) {
             await repo.cancelTheft(incident['id'] as String);
             if (mounted) {
@@ -372,7 +375,8 @@ class _SecurityActionsPanelState extends ConsumerState<_SecurityActionsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final rights = ref.watch(entitlementsProvider).valueOrNull;
+    final rights =
+        ref.watch(vehicleEntitlementsProvider(widget.vehicle.id)).valueOrNull;
     return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -468,8 +472,9 @@ class _SleepModePanelState extends ConsumerState<_SleepModePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final rights = ref.watch(entitlementsProvider).valueOrNull;
-    final sleepIncluded = rights?.has('sleep_mode') ?? true;
+    final rights =
+        ref.watch(vehicleEntitlementsProvider(widget.vehicle.id)).valueOrNull;
+    final sleepIncluded = rights?.has('sleep_mode') ?? false;
     final mode = widget.vehicle.sleepMode;
     final isActive = mode?.active == true;
     final isTriggered = mode?.triggered == true;
@@ -1129,11 +1134,11 @@ class _TheftCountdownDialogState extends State<_TheftCountdownDialog> {
     return AlertDialog(
       title: const Text('Mode vol activé'),
       content: Text(
-        'Le support a été alerté. En cas de faux signalement, vous pouvez encore annuler pendant ${_secondsLeft > 0 ? _secondsLeft : 0} seconde(s).'
-      ),
+          'Le support a été alerté. En cas de faux signalement, vous pouvez encore annuler pendant ${_secondsLeft > 0 ? _secondsLeft : 0} seconde(s).'),
       actions: [
         TextButton(
-          onPressed: _secondsLeft > 0 ? () => Navigator.pop(context, true) : null,
+          onPressed:
+              _secondsLeft > 0 ? () => Navigator.pop(context, true) : null,
           child: const Text('Annuler le signalement'),
         ),
         FilledButton(

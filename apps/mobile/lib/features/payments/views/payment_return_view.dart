@@ -62,6 +62,7 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
       if (status == 'success') {
         ref.invalidate(entitlementsProvider);
         ref.invalidate(vehicleSubscriptionsProvider);
+        ref.invalidate(vehicleEntitlementsProvider);
         return;
       }
       if (status == 'failed' || status == 'requires_review') return;
