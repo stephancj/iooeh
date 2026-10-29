@@ -11,7 +11,15 @@ import '../providers/payments_provider.dart';
 
 class PaymentsView extends ConsumerStatefulWidget {
   final bool isDesktopPanel;
-  const PaymentsView({super.key, this.isDesktopPanel = false});
+  final int? vehicleId;
+  final String? vehicleName;
+  final Entitlements? vehicleRights;
+  const PaymentsView(
+      {super.key,
+      this.isDesktopPanel = false,
+      this.vehicleId,
+      this.vehicleName,
+      this.vehicleRights});
 
   @override
   ConsumerState<PaymentsView> createState() => _PaymentsViewState();
@@ -30,11 +38,37 @@ class _PaymentsViewState extends ConsumerState<PaymentsView> {
 
   Future<void> _checkout(Map<String, dynamic> plan) async {
     final id = plan['id'] as String;
+    if (widget.vehicleId == null) return;
     final coupon = _couponController.text.trim();
     setState(() => _loadingPlanId = id);
     try {
+      final quote = await ref.read(paymentsRepositoryProvider).quote(
+            id,
+            deviceId: widget.vehicleId!,
+            couponCode: coupon.isNotEmpty ? coupon : null,
+          );
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Confirmer le paiement'),
+          content: Text(
+              '${widget.vehicleName ?? 'Véhicule'}\n${plan['name']}\nMontant : ${_formatAmount((quote['amount'] as num).toDouble())} ${quote['currency']}\n${quote['referralDiscount'] == true ? 'Réduction de parrainage appliquée.\n' : ''}${quote['testMode'] == true ? 'Paiement en mode test.' : ''}'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Annuler')),
+            FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Continuer')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
       final result = await ref.read(paymentsRepositoryProvider).checkout(
             id,
+            deviceId: widget.vehicleId!,
+            expectedAmount: (quote['amount'] as num).toInt(),
             couponCode: coupon.isNotEmpty ? coupon : null,
           );
       await openPaymentUrl(result['paymentLink'] as String);
@@ -71,7 +105,12 @@ class _PaymentsViewState extends ConsumerState<PaymentsView> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: widget.isDesktopPanel ? null : AppBar(title: const Text('Abonnement')),
+      appBar: widget.isDesktopPanel
+          ? null
+          : AppBar(
+              title: Text(widget.vehicleName == null
+                  ? 'Abonnement'
+                  : 'Abonnement · ${widget.vehicleName}')),
       body: plansAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => ProductEmptyState(
@@ -85,7 +124,7 @@ class _PaymentsViewState extends ConsumerState<PaymentsView> {
           final plans = allPlans
               .where((plan) => _amount(plan) > 0)
               .toList(growable: false);
-          final rights = rightsAsync.valueOrNull;
+          final rights = widget.vehicleRights ?? rightsAsync.valueOrNull;
           final selected = _selectedPlan(plans, rights);
           return SingleChildScrollView(
             child: ProductPage(
@@ -130,7 +169,8 @@ class _PaymentsViewState extends ConsumerState<PaymentsView> {
                         plan: selected,
                         active: selected['code'] == rights?.planCode,
                         loading: selected['id'] == _loadingPlanId,
-                        disabled: _loadingPlanId != null,
+                        disabled:
+                            _loadingPlanId != null || widget.vehicleId == null,
                         couponController: _couponController,
                         onCheckout: () => _checkout(selected),
                       ),
@@ -322,7 +362,7 @@ class _PlanDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = plan['name'] as String;
     final description = plan['description'] as String?;
-    final benefits = _benefitsFor('${plan['code']}');
+    final benefits = _benefitsFor(plan);
     return ProductSurface(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -368,7 +408,7 @@ class _PlanDetails extends StatelessWidget {
             ),
             const SizedBox(height: 11),
           ],
-          if (!active) ...[
+          ...[
             const SizedBox(height: 10),
             TextField(
               controller: couponController,
@@ -386,12 +426,12 @@ class _PlanDetails extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: active || disabled ? null : onCheckout,
+              onPressed: disabled ? null : onCheckout,
               child: Text(
                 loading
                     ? 'Préparation du paiement…'
                     : active
-                        ? 'Plan actuel'
+                        ? 'Renouveler $name'
                         : 'Choisir $name',
               ),
             ),
@@ -443,18 +483,20 @@ String _formatAmount(double amount) {
   return output.toString();
 }
 
-List<String> _benefitsFor(String code) {
-  final normalized = code.toLowerCase();
-  if (normalized.contains('premium')) {
-    return const [
-      'Flotte étendue et historique longue durée',
-      'Mode vol, SOS et liens de suivi public',
-      'Rapports avancés et exports',
-    ];
-  }
-  return const [
-    'Suivi de plusieurs véhicules',
-    'Zones, alertes et historique enrichi',
-    'Veille antivol et rapports détaillés',
-  ];
+List<String> _benefitsFor(Map<String, dynamic> plan) {
+  final grants = plan['planFeatures'] as List<dynamic>? ?? const [];
+  return grants.whereType<Map>().where((grant) {
+    final feature = grant['feature'];
+    return grant['enabled'] == true &&
+        feature is Map &&
+        feature['isActive'] == true &&
+        grant['value'] != false;
+  }).map((grant) {
+    final feature = grant['feature'] as Map;
+    final value = grant['value'];
+    final unit = feature['unit'];
+    return value is num
+        ? '${feature['name']} : $value ${unit ?? ''}'.trim()
+        : '${feature['name']}';
+  }).toList();
 }

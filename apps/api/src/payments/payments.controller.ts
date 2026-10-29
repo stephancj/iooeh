@@ -9,6 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { CreatePaymentDto, PapiNotificationDto } from './payments.dto';
 import { PaymentsService } from './payments.service';
 
@@ -20,6 +22,12 @@ export class PaymentsController {
     @Request() req: { user: { id: number } },
   ) {
     return this.payments.create(req.user.id, dto);
+  }
+  @Post('quote') @UseGuards(JwtAuthGuard) quote(
+    @Body() dto: CreatePaymentDto,
+    @Request() req: { user: { id: number } },
+  ) {
+    return this.payments.quote(req.user.id, dto);
   }
   @Get('plans') @UseGuards(JwtAuthGuard) plans() {
     return this.payments.listPlans();
@@ -36,7 +44,8 @@ export class PaymentsController {
     return this.payments.status(req.user.id, reference);
   }
   @Get('admin/all')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   listAdminPayments() {
     return this.payments.listAdminPayments();
   }

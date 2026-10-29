@@ -1,6 +1,8 @@
 import {
   IsEnum,
   IsNumber,
+  IsInt,
+  Min,
   IsOptional,
   IsString,
   IsUUID,
@@ -14,6 +16,8 @@ export enum PapiProvider {
 }
 export class CreatePaymentDto {
   @IsUUID() planId: string;
+  @IsInt() @Min(1) deviceId: number;
+  @IsOptional() @IsInt() @Min(0) expectedAmount?: number;
   @IsOptional() @IsEnum(PapiProvider) provider?: PapiProvider;
   @IsOptional() @IsString() couponCode?: string;
 }

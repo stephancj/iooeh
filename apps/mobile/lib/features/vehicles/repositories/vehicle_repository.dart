@@ -6,6 +6,7 @@ import '../models/vehicle_model.dart';
 
 abstract class VehicleRepository {
   Future<List<Vehicle>> getVehicles();
+  Future<List<Map<String, dynamic>>> getSubscriptions();
   Future<Vehicle> claimVehicle({
     required String serialNumber,
     String? name,
@@ -30,6 +31,14 @@ abstract class VehicleRepository {
 class RemoteVehicleRepository implements VehicleRepository {
   final Dio _dio;
   const RemoteVehicleRepository(this._dio);
+
+  @override
+  Future<List<Map<String, dynamic>>> getSubscriptions() async {
+    final response = await _dio.get<List<dynamic>>('/vehicles/subscriptions');
+    return (response.data ?? [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
 
   @override
   Future<List<Vehicle>> getVehicles() async {

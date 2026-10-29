@@ -36,10 +36,12 @@ export class VehiclesController {
    * Retourne uniquement les véhicules assignés à l'utilisateur connecté.
    */
   @Get()
-  findAll(@Request() req: { user: { id: number } }) {
-    return this.entitlementsService
-      .assertFeature(req.user.id, 'live_tracking')
-      .then(() => this.vehiclesService.findAllForUser(req.user.id));
+  async findAll(@Request() req: { user: { id: number } }) {
+    const vehicles = await this.vehiclesService.findAllForUser(req.user.id);
+    return Promise.all(vehicles.map(async (vehicle) => {
+      const allowed = await this.entitlementsService.hasFeature(req.user.id, 'live_tracking', vehicle.id);
+      return allowed ? vehicle : { ...vehicle, position: null, sleepMode: null };
+    }));
   }
 
   /** POST /api/vehicles/claim — associe un device via IMEI / numéro de série. */
@@ -51,6 +53,15 @@ export class VehiclesController {
     return this.vehiclesService.claimVehicle(req.user.id, dto);
   }
 
+  @Get('subscriptions')
+  async subscriptions(@Request() req: { user: { id: number } }) {
+    const vehicles = await this.vehiclesService.findAllForUser(req.user.id);
+    return Promise.all(vehicles.map(async (vehicle) => ({
+      vehicle: { id: vehicle.id, name: vehicle.name, plate: vehicle.plate, serialNumber: vehicle.serialNumber },
+      entitlements: await this.entitlementsService.getForVehicle(req.user.id, vehicle.id),
+    })));
+  }
+
   /**
    * GET /api/vehicles/:id
    * Détails complets d'un seul véhicule — vérifie que le device appartient à l'user.
@@ -60,7 +71,7 @@ export class VehiclesController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking');
+    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     return this.vehiclesService.findOne(id);
   }
@@ -75,7 +86,7 @@ export class VehiclesController {
     @Body() data: Partial<Device>,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking');
+    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     return this.vehiclesService.update(id, data);
   }
@@ -110,7 +121,7 @@ export class VehiclesController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking');
+    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     const position = await this.vehiclesService.getLastPosition(id);
     if (!position) {
@@ -149,6 +160,7 @@ export class VehiclesController {
     await this.entitlementsService.assertFeature(
       req.user.id,
       'activity_reports',
+      id,
     );
     await this.vehiclesService.assertOwner(id, req.user.id);
     const { from, to } = this.periodToDates(period);
@@ -177,7 +189,7 @@ export class VehiclesController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'trip_reports');
+    await this.entitlementsService.assertFeature(req.user.id, 'trip_reports', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     const now = new Date();
     const fromDate = from
@@ -202,7 +214,7 @@ export class VehiclesController {
     @Query('threshold') threshold: string | undefined,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'speed_reports');
+    await this.entitlementsService.assertFeature(req.user.id, 'speed_reports', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     const now = new Date();
     const fromDate = from
@@ -233,7 +245,7 @@ export class VehiclesController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'idle_reports');
+    await this.entitlementsService.assertFeature(req.user.id, 'idle_reports', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     const now = new Date();
     const fromDate = from
@@ -268,6 +280,7 @@ export class VehiclesController {
     await this.entitlementsService.assertFeature(
       req.user.id,
       'geofence_reports',
+      id,
     );
     await this.vehiclesService.assertOwner(id, req.user.id);
     const { from, to } = this.periodToDates(period);
@@ -292,7 +305,7 @@ export class VehiclesController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlementsService.assertFeature(req.user.id, 'history');
+    await this.entitlementsService.assertFeature(req.user.id, 'history', id);
     await this.vehiclesService.assertOwner(id, req.user.id);
     const now = new Date();
     const requestedFrom = from
@@ -307,6 +320,7 @@ export class VehiclesController {
     const retentionDays = await this.entitlementsService.getNumber(
       req.user.id,
       'history_retention_days',
+      id,
     );
     const earliest = new Date(Date.now() - retentionDays * 24 * 3600 * 1000);
     const fromDate = requestedFrom < earliest ? earliest : requestedFrom;
@@ -349,8 +363,8 @@ export class VehiclesController {
       throw new BadRequestException('"from" doit être antérieur à "to"');
     }
 
-    await this.entitlementsService.assertFeature(req.user.id, 'history');
-    await this.entitlementsService.assertHistoryRange(req.user.id, fromDate);
+    await this.entitlementsService.assertFeature(req.user.id, 'history', id);
+    await this.entitlementsService.assertHistoryRange(req.user.id, fromDate, id);
 
     const limitNum = limit ? Math.min(parseInt(limit, 10), 5000) : 1000;
 

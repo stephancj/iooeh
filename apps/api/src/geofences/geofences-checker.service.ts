@@ -85,6 +85,7 @@ export class GeofencesCheckerService {
             !(await this.entitlementsService.hasFeature(
               fence.userId,
               'geofence_alerts',
+              vehicle.id,
             ))
           )
             continue;
@@ -121,6 +122,7 @@ export class GeofencesCheckerService {
               (await this.entitlementsService.hasFeature(
                 fence.userId,
                 'push_notifications',
+                vehicle.id,
               ))
             ) {
               const subscriptionId = await this.getUserSubId(fence.userId);
@@ -143,6 +145,7 @@ export class GeofencesCheckerService {
               (await this.entitlementsService.hasFeature(
                 fence.userId,
                 'whatsapp_notifications',
+                vehicle.id,
               ))
             ) {
               await this.sendWhatsAppIfEnabled(
@@ -182,6 +185,7 @@ export class GeofencesCheckerService {
               (await this.entitlementsService.hasFeature(
                 fence.userId,
                 'push_notifications',
+                vehicle.id,
               ))
             ) {
               const subscriptionId = await this.getUserSubId(fence.userId);
@@ -204,6 +208,7 @@ export class GeofencesCheckerService {
               (await this.entitlementsService.hasFeature(
                 fence.userId,
                 'whatsapp_notifications',
+                vehicle.id,
               ))
             ) {
               await this.sendWhatsAppIfEnabled(
@@ -274,6 +279,7 @@ export class GeofencesCheckerService {
           !(await this.entitlementsService.hasFeature(
             mode.ownerId,
             'sleep_mode',
+            mode.deviceId,
           ))
         )
           continue;
@@ -349,6 +355,7 @@ export class GeofencesCheckerService {
           (await this.entitlementsService.hasFeature(
             userId,
             'low_battery_alerts',
+            vehicle.id,
           )) &&
           vehicle.position.battery != null &&
           vehicle.position.battery < 20
@@ -369,7 +376,7 @@ export class GeofencesCheckerService {
         const speedKmh = vehicle.position.speedKmh;
         if (
           userAlertSettings.alertSpeedLimit &&
-          (await this.entitlementsService.hasFeature(userId, 'speed_alerts')) &&
+          (await this.entitlementsService.hasFeature(userId, 'speed_alerts', vehicle.id)) &&
           speedKmh != null
         ) {
           if (speedKmh > this.SPEED_LIMIT_KMH) {
@@ -513,7 +520,7 @@ export class GeofencesCheckerService {
   ): Promise<void> {
     if (
       settings.alertViaPush &&
-      (await this.entitlementsService.hasFeature(userId, 'push_notifications'))
+      (await this.entitlementsService.hasFeature(userId, 'push_notifications', vehicleId))
     ) {
       const subscriptionId = await this.getUserSubId(userId);
       const title =
@@ -541,6 +548,7 @@ export class GeofencesCheckerService {
       (await this.entitlementsService.hasFeature(
         userId,
         'whatsapp_notifications',
+        vehicleId,
       ))
     ) {
       await this.sendWhatsAppIfEnabled(

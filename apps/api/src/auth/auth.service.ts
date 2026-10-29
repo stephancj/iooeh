@@ -86,7 +86,6 @@ export class AuthService {
       phone: dto.phone,
       role: UserRole.USER,
     });
-    await this.entitlementsService.ensureDefaultSubscription(user.id);
 
     if (dto.referralCode) {
       await this.promotionsService.processRegistrationReferral(

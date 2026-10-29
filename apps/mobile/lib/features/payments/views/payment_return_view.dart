@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../entitlements/providers/entitlements_provider.dart';
 import '../providers/payments_provider.dart';
+import 'vehicle_subscriptions_view.dart';
 
 class PaymentReturnView extends ConsumerStatefulWidget {
   final String reference;
@@ -30,16 +31,13 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
   bool checking = false;
   bool timedOut = false;
 
-  bool get _isTerminal => status == 'success' || status == 'failed';
+  bool get _isTerminal =>
+      status == 'success' || status == 'failed' || status == 'requires_review';
 
   @override
   void initState() {
     super.initState();
-    status = widget.reference.isEmpty
-        ? 'invalid'
-        : widget.hintedStatus == 'failed'
-            ? 'failed'
-            : 'pending';
+    status = widget.reference.isEmpty ? 'invalid' : 'pending';
     if (status == 'pending') _check();
   }
 
@@ -63,9 +61,10 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
       });
       if (status == 'success') {
         ref.invalidate(entitlementsProvider);
+        ref.invalidate(vehicleSubscriptionsProvider);
         return;
       }
-      if (status == 'failed') return;
+      if (status == 'failed' || status == 'requires_review') return;
     } catch (_) {
       if (!mounted) return;
       setState(() => checking = false);
@@ -94,12 +93,13 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
     final success = status == 'success';
     final failed = status == 'failed';
     final invalid = status == 'invalid';
-    final waiting = !success && !failed && !invalid && !timedOut;
+    final review = status == 'requires_review';
+    final waiting = !success && !failed && !invalid && !review && !timedOut;
     final stateColor = success
         ? AppColors.primary
         : failed || invalid
             ? AppColors.statusAlert
-            : timedOut
+            : timedOut || review
                 ? AppColors.batteryMedium
                 : AppColors.statusIdle;
     final title = success
@@ -108,18 +108,22 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
             ? 'Paiement non abouti'
             : invalid
                 ? 'Lien de retour invalide'
-                : timedOut
-                    ? 'La confirmation prend plus de temps'
-                    : 'Vérification du paiement';
+                : review
+                    ? 'Paiement à vérifier'
+                    : timedOut
+                        ? 'La confirmation prend plus de temps'
+                        : 'Vérification du paiement';
     final message = success
         ? 'Votre abonnement est actif. Vous pouvez profiter immédiatement de vos nouvelles fonctionnalités.'
         : failed
             ? 'Le paiement n’a pas été confirmé. Aucun abonnement n’a été activé.'
             : invalid
                 ? 'La référence du paiement est absente. Revenez dans l’application pour consulter votre abonnement.'
-                : timedOut
-                    ? 'Votre paiement peut déjà être validé chez PAPI. Ne payez pas une seconde fois. Relancez simplement la vérification.'
-                    : 'PAPI a terminé le parcours. Nous vérifions maintenant la confirmation sécurisée côté serveur.';
+                : review
+                    ? 'Votre paiement a été reçu, mais le véhicule a changé de propriétaire. Contactez le support avec votre référence avant de payer à nouveau.'
+                    : timedOut
+                        ? 'Votre paiement peut déjà être validé chez PAPI. Ne payez pas une seconde fois. Relancez simplement la vérification.'
+                        : 'PAPI a terminé le parcours. Nous vérifions maintenant la confirmation sécurisée côté serveur.';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -169,7 +173,7 @@ class _PaymentReturnViewState extends ConsumerState<PaymentReturnView> {
                                 ? Icons.check_rounded
                                 : failed || invalid
                                     ? Icons.close_rounded
-                                    : timedOut
+                                    : timedOut || review
                                         ? Icons.schedule_rounded
                                         : Icons.verified_user_outlined,
                           ),

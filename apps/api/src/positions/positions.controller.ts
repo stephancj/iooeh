@@ -44,7 +44,7 @@ export class PositionsController {
     @Request() req: { user: { id: number } },
   ) {
     await this.assertOwner(deviceId, req.user.id);
-    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking');
+    await this.entitlementsService.assertFeature(req.user.id, 'live_tracking', deviceId);
     return this.positionsService.getLastPosition(deviceId);
   }
 
@@ -83,8 +83,8 @@ export class PositionsController {
       throw new BadRequestException('"from" doit être antérieur à "to"');
     }
 
-    await this.entitlementsService.assertFeature(req!.user.id, 'history');
-    await this.entitlementsService.assertHistoryRange(req!.user.id, fromDate);
+    await this.entitlementsService.assertFeature(req!.user.id, 'history', deviceId);
+    await this.entitlementsService.assertHistoryRange(req!.user.id, fromDate, deviceId);
 
     const limitNum = limit ? parseInt(limit, 10) : 1000;
 

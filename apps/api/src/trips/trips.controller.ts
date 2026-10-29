@@ -32,17 +32,18 @@ export class TripsController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlements.assertFeature(req.user.id, 'trip_reports');
+    await this.entitlements.assertFeature(req.user.id, 'trip_reports', deviceId);
     const range = this.dates(from, to);
-    await this.entitlements.assertHistoryRange(req.user.id, range.from);
+    await this.entitlements.assertHistoryRange(req.user.id, range.from, deviceId);
     return this.trips.listForUser(req.user.id, deviceId, range.from, range.to);
   }
   @Get(':id/playback') async playback(
     @Param('id') id: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlements.assertFeature(req.user.id, 'trip_playback');
-    return this.trips.playback(req.user.id, id);
+    const trip = await this.trips.playback(req.user.id, id);
+    await this.entitlements.assertFeature(req.user.id, 'trip_playback', trip.deviceId);
+    return trip;
   }
   @Get('device/:deviceId/export.csv') async csv(
     @Param('deviceId', ParseIntPipe) deviceId: number,
@@ -50,7 +51,7 @@ export class TripsController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlements.assertFeature(req.user.id, 'report_exports');
+    await this.entitlements.assertFeature(req.user.id, 'report_exports', deviceId);
     const range = this.dates(from, to);
     const rows = await this.trips.listForUser(
       req.user.id,
@@ -69,7 +70,7 @@ export class TripsController {
     @Query('to') to: string,
     @Request() req: { user: { id: number } },
   ) {
-    await this.entitlements.assertFeature(req.user.id, 'report_exports');
+    await this.entitlements.assertFeature(req.user.id, 'report_exports', deviceId);
     const range = this.dates(from, to);
     const rows = await this.trips.listForUser(
       req.user.id,

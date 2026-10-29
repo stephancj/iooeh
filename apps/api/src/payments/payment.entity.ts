@@ -12,12 +12,16 @@ export enum PaymentStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   EXPIRED = 'expired',
+  REQUIRES_REVIEW = 'requires_review',
 }
 
 @Entity({ name: 'payments' })
 export class Payment {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column({ name: 'user_id' }) userId: number;
+  @Column({ name: 'assignment_id', type: 'integer', nullable: true }) assignmentId: number | null;
+  @Column({ name: 'coupon_id', type: 'uuid', nullable: true }) couponId: string | null;
+  @Column({ name: 'referral_id', type: 'uuid', nullable: true }) referralId: string | null;
   @Column({ name: 'plan_id', type: 'uuid' }) planId: string;
   @Column({ type: 'varchar', length: 80, unique: true }) reference: string;
   @Column({ type: 'integer' }) amount: number;

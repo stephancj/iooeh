@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'promotions_repository.dart';
+import '../payments/views/vehicle_subscriptions_view.dart';
+import '../entitlements/providers/entitlements_provider.dart';
 
 class ReferralView extends ConsumerWidget {
   final bool isDesktopPanel;
@@ -12,6 +14,65 @@ class ReferralView extends ConsumerWidget {
       context,
       MaterialPageRoute(builder: (context) => const ReferralView()),
     );
+  }
+
+  Future<void> _claim(
+      BuildContext context, WidgetRef ref, String referralId) async {
+    final rows = await ref.read(vehicleSubscriptionsProvider.future);
+    if (!context.mounted) return;
+    if (rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('Ajoutez un véhicule pour utiliser votre récompense.')));
+      return;
+    }
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Choisir le véhicule bénéficiaire'),
+        children: rows.map((row) {
+          final vehicle = Map<String, dynamic>.from(row['vehicle'] as Map);
+          return SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, vehicle),
+              child: Text(
+                  '${vehicle['name']} · ${vehicle['plate'] ?? vehicle['serialNumber']}'));
+        }).toList(),
+      ),
+    );
+    if (selected == null || !context.mounted) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+              title: const Text('Appliquer la récompense ?'),
+              content: Text(
+                  'Les jours offerts seront ajoutés à ${selected['name']}.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Annuler')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Confirmer'))
+              ],
+            ));
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref
+          .read(promotionsRepositoryProvider)
+          .claimReferralReward(referralId, selected['id'] as int);
+      ref.invalidate(referralInfoProvider);
+      ref.invalidate(vehicleSubscriptionsProvider);
+      ref.invalidate(entitlementsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Récompense appliquée à ${selected['name']}')));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Impossible d’appliquer la récompense. Réessayez.')));
+      }
+    }
   }
 
   @override
@@ -26,7 +87,8 @@ class ReferralView extends ConsumerWidget {
       body: referralAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Text('Erreur de chargement: $err', style: const TextStyle(color: Colors.red)),
+          child: Text('Erreur de chargement: $err',
+              style: const TextStyle(color: Colors.red)),
         ),
         data: (info) {
           return SingleChildScrollView(
@@ -36,19 +98,24 @@ class ReferralView extends ConsumerWidget {
               children: [
                 // Banner Card
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 2,
                   color: const Color(0xFF2563EB),
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       children: const [
-                        Icon(Icons.card_giftcard, size: 48, color: Colors.white),
+                        Icon(Icons.card_giftcard,
+                            size: 48, color: Colors.white),
                         SizedBox(height: 12),
                         Text(
                           'Offrez 20% & Gagnez 1 Mois Gratuit !',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                         ),
                         SizedBox(height: 8),
                         Text(
@@ -64,7 +131,8 @@ class ReferralView extends ConsumerWidget {
 
                 // Code Parrain Card
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -72,18 +140,23 @@ class ReferralView extends ConsumerWidget {
                       children: [
                         const Text(
                           'Votre Code Parrain',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Expanded(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border:
+                                      Border.all(color: Colors.grey.shade300),
                                 ),
                                 child: SelectableText(
                                   info.referralCode,
@@ -101,9 +174,11 @@ class ReferralView extends ConsumerWidget {
                               icon: const Icon(Icons.copy),
                               tooltip: 'Copier le code',
                               onPressed: () {
-                                Clipboard.setData(ClipboardData(text: info.referralCode));
+                                Clipboard.setData(
+                                    ClipboardData(text: info.referralCode));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Code parrain copié !')),
+                                  const SnackBar(
+                                      content: Text('Code parrain copié !')),
                                 );
                               },
                             ),
@@ -126,10 +201,15 @@ class ReferralView extends ConsumerWidget {
                             children: [
                               Text(
                                 '${info.totalReferred}',
-                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                                style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2563EB)),
                               ),
                               const SizedBox(height: 4),
-                              const Text('Filleuls Inscrits', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const Text('Filleuls Inscrits',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -144,10 +224,15 @@ class ReferralView extends ConsumerWidget {
                             children: [
                               Text(
                                 '${info.qualifiedCount}',
-                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
+                                style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green),
                               ),
                               const SizedBox(height: 4),
-                              const Text('Abonnements Validés', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const Text('Abonnements Validés',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -182,14 +267,18 @@ class ReferralView extends ConsumerWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: info.referrals.length,
                     itemBuilder: (context, index) {
-                      final item = info.referrals[index] as Map<String, dynamic>;
+                      final item =
+                          info.referrals[index] as Map<String, dynamic>;
                       final status = item['status'] as String? ?? 'pending';
-                      final isRewarded = status == 'rewarded' || status == 'qualified';
+                      final isRewarded = status == 'rewarded';
+                      final isAvailable = status == 'qualified';
 
                       return Card(
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: isRewarded ? Colors.green.shade100 : Colors.orange.shade100,
+                            backgroundColor: isRewarded
+                                ? Colors.green.shade100
+                                : Colors.orange.shade100,
                             child: Icon(
                               isRewarded ? Icons.check : Icons.hourglass_empty,
                               color: isRewarded ? Colors.green : Colors.orange,
@@ -197,8 +286,18 @@ class ReferralView extends ConsumerWidget {
                             ),
                           ),
                           title: Text('Filleul #${item['refereeId']}'),
+                          trailing: isAvailable
+                              ? TextButton(
+                                  onPressed: () => _claim(
+                                      context, ref, item['id'] as String),
+                                  child: const Text('Choisir'))
+                              : null,
                           subtitle: Text(
-                            isRewarded ? 'Abonnement actif — Récompense attribuée !' : 'Inscrit — En attente du 1er abonnement',
+                            isRewarded
+                                ? 'Récompense attribuée'
+                                : isAvailable
+                                    ? 'Récompense disponible'
+                                    : 'En attente du premier paiement',
                             style: TextStyle(
                               fontSize: 12,
                               color: isRewarded ? Colors.green : Colors.orange,

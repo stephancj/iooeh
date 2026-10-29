@@ -9,8 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { EntitlementsService } from '../entitlements/entitlements.service';
-import { CreateCouponDto, RedeemCouponDto, ValidateCouponDto } from './promotions.dto';
+import { ClaimReferralRewardDto, CreateCouponDto, RedeemCouponDto, ValidateCouponDto } from './promotions.dto';
 import { PromotionsService } from './promotions.service';
 
 @Controller('promotions')
@@ -26,7 +28,13 @@ export class PromotionsController {
     @Body() dto: RedeemCouponDto,
     @Request() req: { user: { id: number } },
   ) {
-    return this.promotionsService.redeemCode(req.user.id, dto.code);
+    return this.promotionsService.redeemCode(req.user.id, dto.code, dto.deviceId);
+  }
+
+  @Post('preview')
+  @UseGuards(JwtAuthGuard)
+  preview(@Body() dto: RedeemCouponDto, @Request() req: { user: { id: number } }) {
+    return this.promotionsService.previewCode(req.user.id, dto.code, dto.deviceId);
   }
 
   @Post('validate')
@@ -48,21 +56,30 @@ export class PromotionsController {
     return this.promotionsService.getReferralInfo(req.user.id);
   }
 
+  @Post('referrals/:id/claim')
+  @UseGuards(JwtAuthGuard)
+  claimReferralReward(@Param('id') id: string, @Body() dto: ClaimReferralRewardDto, @Request() req: { user: { id: number } }) {
+    return this.promotionsService.claimReferralReward(req.user.id, id, dto.deviceId);
+  }
+
   // ── Admin Endpoints ────────────────────────────────────────────────────────
   @Get('admin/coupons')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   listCoupons() {
     return this.promotionsService.listCoupons();
   }
 
   @Post('admin/coupons')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   createCoupon(@Body() dto: CreateCouponDto) {
     return this.promotionsService.createCoupon(dto);
   }
 
   @Delete('admin/coupons/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   deleteCoupon(@Param('id') id: string) {
     return this.promotionsService.deleteCoupon(id);
   }

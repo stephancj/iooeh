@@ -4,6 +4,7 @@ import { Position } from '../positions/position.entity';
 import { User } from '../users/user.entity';
 import { DeviceAssignment } from '../admin/device-assignment.entity';
 import { Subscription } from '../admin/subscription.entity';
+import { VehicleSubscription } from '../entitlements/vehicle-subscription.entity';
 import { Geofence } from '../geofences/entities/geofence.entity';
 import { Alert } from '../alerts/entities/alert.entity';
 import { VehicleSleepMode } from '../vehicles/vehicle-sleep-mode.entity';
@@ -38,6 +39,7 @@ export default (): TypeOrmModuleOptions => ({
     User,
     DeviceAssignment,
     Subscription,
+    VehicleSubscription,
     Geofence,
     Alert,
     VehicleSleepMode,

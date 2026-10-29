@@ -2,6 +2,7 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
@@ -47,6 +48,7 @@ export class CreateCouponDto {
 }
 
 export class RedeemCouponDto {
+  @IsOptional() @IsInt() @Min(1) deviceId?: number;
   @IsString()
   @IsNotEmpty()
   code: string;
@@ -59,4 +61,8 @@ export class ValidateCouponDto {
 
   @IsUUID()
   planId: string;
+}
+
+export class ClaimReferralRewardDto {
+  @IsInt() @Min(1) deviceId: number;
 }

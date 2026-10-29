@@ -245,7 +245,6 @@ export class AdminService {
       name: dto.name,
       role: dto.role ?? UserRole.USER,
     });
-    await this.entitlementsService.ensureDefaultSubscription(user.id);
     return user;
   }
 
@@ -366,8 +365,14 @@ export class AdminService {
     const existing = await this.assignmentRepo.findOne({ where: { deviceId } });
 
     if (existing) {
-      existing.userId = userId;
-      await this.assignmentRepo.save(existing);
+      if (existing.userId !== userId) {
+        await this.assignmentRepo.manager.transaction(async (manager) => {
+          await manager.delete(DeviceAssignment, { id: existing.id });
+          await manager.save(DeviceAssignment, manager.create(DeviceAssignment, { deviceId, userId }));
+        });
+        this.entitlementsService.invalidate(existing.userId);
+        this.entitlementsService.invalidate(userId);
+      }
       return { deviceId, userId, updated: true };
     }
 
@@ -526,57 +531,25 @@ export class AdminService {
 
   /** Liste tous les users avec leur abonnement (crée un enregistrement free/trial si absent) */
   async listSubscriptions(page = 1, limit = 50) {
-    const [[users, total], plans] = await Promise.all([
-      this.usersService.findAllPaginated(page, limit),
-      this.planRepo.find(),
-    ]);
-    
-    if (users.length === 0) {
-      return { data: [], meta: { total, page, limit, totalPages: 0 } };
-    }
-    await Promise.all(
-      users.map((user) =>
-        this.entitlementsService.ensureDefaultSubscription(user.id),
-      ),
-    );
-    const subs = await this.subscriptionRepo.find();
-
-    const subMap = new Map(subs.map((s) => [s.userId, s]));
+    const [assignments, total] = await this.assignmentRepo.findAndCount({ order: { id: 'DESC' }, skip: (page - 1) * limit, take: limit });
+    const plans = await this.planRepo.find();
     const planMap = new Map(plans.map((plan) => [plan.id, plan]));
-
-    const data = users.map((u) => {
-      const sub = subMap.get(u.id);
-      return {
-        userId: u.id,
-        name: u.name,
-        email: u.email,
-        phone: u.phone,
-        isActive: u.isActive,
-        subscription: sub
-          ? {
-              ...sub,
-              planDetails: sub.planId
-                ? (planMap.get(sub.planId) ?? null)
-                : null,
-            }
-          : null,
-      };
-    });
-
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    const data = await Promise.all(assignments.map(async (assignment) => {
+      const [user, vehicle, sub] = await Promise.all([
+        this.usersService.findByIdAdmin(assignment.userId),
+        this.vehiclesService.findOne(assignment.deviceId),
+        this.entitlementsService.ensureVehicleSubscription(assignment.userId, assignment.deviceId),
+      ]);
+      return { userId: assignment.userId, deviceId: assignment.deviceId, vehicleName: vehicle.name, vehiclePlate: vehicle.plate,
+        name: user?.name ?? null, email: user?.email ?? '', phone: user?.phone ?? null, isActive: user?.isActive ?? false,
+        subscription: { ...sub, planDetails: sub.planId ? (planMap.get(sub.planId) ?? null) : null } };
+    }));
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  /** Crée ou met à jour l'abonnement d'un user */
+  /** Met à jour l’abonnement du véhicule affecté. */
   async upsertSubscription(
-    userId: number,
+    deviceId: number,
     data: {
       planId?: string;
       plan?: string;
@@ -586,11 +559,10 @@ export class AdminService {
       notes?: string | null;
     },
   ) {
-    const user = await this.usersService.findByIdAdmin(userId);
-    if (!user) throw new NotFoundException(`User ${userId} not found`);
-
-    const sub =
-      await this.entitlementsService.ensureDefaultSubscription(userId);
+    const assignment = await this.assignmentRepo.findOne({ where: { deviceId } });
+    if (!assignment) throw new NotFoundException('Véhicule non affecté.');
+    const userId = assignment.userId;
+    const sub = await this.entitlementsService.ensureVehicleSubscription(userId, deviceId);
 
     if (data.planId || data.plan) {
       const targetPlan = data.planId
@@ -615,7 +587,7 @@ export class AdminService {
       sub.trialEndsAt = data.trialEndsAt ? new Date(data.trialEndsAt) : null;
     if (data.notes !== undefined) sub.notes = data.notes ?? null;
 
-    const saved = await this.subscriptionRepo.save(sub);
+    const saved = await this.entitlementsService.saveVehicleSubscription(sub);
     this.entitlementsService.invalidate(userId);
     return saved;
   }

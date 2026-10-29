@@ -14,6 +14,9 @@ import { Label } from "@/components/ui/label";
 type SubscriptionStatus = "trial" | "active" | "suspended" | "cancelled";
 type SubscriptionRow = {
   userId: number;
+  deviceId: number;
+  vehicleName: string;
+  vehiclePlate: string | null;
   name: string | null;
   email: string;
   phone: string | null;
@@ -68,7 +71,7 @@ function SubscriptionsPageContent() {
 
   const filtered = useMemo(() => rows.filter((row) => {
     const q = search.trim().toLowerCase();
-    const matchesSearch = !q || [row.name ?? "", row.email, row.phone ?? ""].some((value) => value.toLowerCase().includes(q));
+    const matchesSearch = !q || [row.name ?? "", row.email, row.phone ?? "", row.vehicleName, row.vehiclePlate ?? ""].some((value) => value.toLowerCase().includes(q));
     return matchesSearch && (filter === "all" || row.subscription?.status === filter);
   }), [rows, search, filter]);
 
@@ -87,7 +90,7 @@ function SubscriptionsPageContent() {
     if (!editing || !form.planId) return;
     setSaving(true);
     try {
-      await upsertSubscription(editing.userId, {
+      await upsertSubscription(editing.deviceId, {
         planId: form.planId,
         status: form.status,
         trialEndsAt: form.trialEndsAt ? new Date(`${form.trialEndsAt}T23:59:59`).toISOString() : null,
@@ -116,7 +119,7 @@ function SubscriptionsPageContent() {
     </header>
 
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Metric label="Comptes" value={meta.total} icon={Users} tone="neutral" />
+      <Metric label="Véhicules" value={meta.total} icon={Users} tone="neutral" />
       <Metric label="Actifs" value={activeCount} icon={ShieldCheck} tone="green" />
       <Metric label="En essai" value={trialCount} icon={CalendarClock} tone="blue" />
       <Metric label="Suspendus / annulés" value={suspendedCount} icon={CreditCard} tone="red" />
@@ -127,9 +130,9 @@ function SubscriptionsPageContent() {
         <div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un client…" className="pl-9" /></div>
         <div className="flex flex-wrap gap-2">{(["all", "trial", "active", "suspended", "cancelled"] as const).map((status) => <Button key={status} size="sm" variant={filter === status ? "default" : "outline"} onClick={() => setFilter(status)}>{status === "all" ? "Tous" : statusLabels[status]}</Button>)}</div>
       </div>
-      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="px-5 py-3">Client</th><th className="px-5 py-3">Plan</th><th className="px-5 py-3">Statut</th><th className="px-5 py-3">Échéance</th><th className="px-5 py-3"></th></tr></thead><tbody className="divide-y">
-        {loading ? <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Chargement des abonnements…</td></tr> : filtered.map((row) => <tr key={row.userId} className="transition-colors hover:bg-muted/30">
-          <td className="px-5 py-4"><div className="font-semibold">{row.name || "Sans nom"}</div><div className="text-xs text-muted-foreground">{row.email}</div></td>
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="px-5 py-3">Véhicule / client</th><th className="px-5 py-3">Plan</th><th className="px-5 py-3">Statut</th><th className="px-5 py-3">Échéance</th><th className="px-5 py-3"></th></tr></thead><tbody className="divide-y">
+        {loading ? <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Chargement des abonnements…</td></tr> : filtered.map((row) => <tr key={row.deviceId} className="transition-colors hover:bg-muted/30">
+          <td className="px-5 py-4"><div className="font-semibold">{row.vehicleName}</div><div className="text-xs text-muted-foreground">{row.vehiclePlate || "Sans plaque"} · {row.name || row.email}</div></td>
           <td className="px-5 py-4"><div className="font-semibold text-trackeo-dark">{row.subscription?.planDetails?.name ?? row.subscription?.plan ?? "Free"}</div><div className="text-xs text-muted-foreground">{row.subscription?.planDetails ? `${Number(row.subscription.planDetails.priceMonthly).toLocaleString("fr-FR")} ${row.subscription.planDetails.currency}/mois` : "Plan par défaut"}</div></td>
           <td className="px-5 py-4"><StatusBadge status={row.subscription?.status ?? "trial"} /></td>
           <td className="px-5 py-4 text-muted-foreground">{formatDate(row.subscription?.status === "trial" ? row.subscription?.trialEndsAt : row.subscription?.nextBillingDate)}</td>
@@ -163,7 +166,7 @@ function SubscriptionsPageContent() {
       </div>
     </section>
 
-    <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>Gérer l’abonnement · {editing?.name || editing?.email}</DialogTitle></DialogHeader><div className="grid gap-4 py-2 sm:grid-cols-2">
+    <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>Gérer l’abonnement · {editing?.vehicleName}</DialogTitle></DialogHeader><div className="grid gap-4 py-2 sm:grid-cols-2">
       <Field label="Plan"><select value={form.planId} onChange={(e) => setForm({ ...form, planId: e.target.value })} className="h-10 w-full rounded-md border bg-background px-3 text-sm">{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {Number(plan.priceMonthly).toLocaleString("fr-FR")} {plan.currency}</option>)}</select></Field>
       <Field label="Statut"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as SubscriptionStatus })} className="h-10 w-full rounded-md border bg-background px-3 text-sm">{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
       <Field label="Fin de l’essai"><Input type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></Field>

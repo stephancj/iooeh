@@ -172,7 +172,7 @@ export class VehiclesService {
     deviceId: number,
     ownerId: number,
   ): Promise<VehicleSleepMode> {
-    await this.entitlementsService.assertFeature(ownerId, 'sleep_mode');
+    await this.entitlementsService.assertFeature(ownerId, 'sleep_mode', deviceId);
     const vehicle = await this.findOne(deviceId);
     if (!vehicle.position || vehicle.status === 'offline') {
       throw new BadRequestException(

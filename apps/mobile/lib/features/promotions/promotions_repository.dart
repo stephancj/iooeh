@@ -65,21 +65,34 @@ class PromotionsRepository {
 
   PromotionsRepository(this._dio);
 
-  Future<Map<String, dynamic>> redeemCode(String code) async {
-    final response = await _dio.post('/api/promotions/redeem', data: {'code': code});
+  Future<Map<String, dynamic>> redeemCode(String code, {int? deviceId}) async {
+    final response = await _dio.post('/promotions/redeem',
+        data: {'code': code, if (deviceId != null) 'deviceId': deviceId});
     return response.data as Map<String, dynamic>;
   }
 
-  Future<ValidateCouponResult> validateCoupon(String code, String planId) async {
-    final response = await _dio.post('/api/promotions/validate', data: {
+  Future<Map<String, dynamic>> previewCode(String code, {int? deviceId}) async {
+    final response = await _dio.post('/promotions/preview',
+        data: {'code': code, if (deviceId != null) 'deviceId': deviceId});
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<ValidateCouponResult> validateCoupon(
+      String code, String planId) async {
+    final response = await _dio.post('/promotions/validate', data: {
       'code': code,
       'planId': planId,
     });
     return ValidateCouponResult.fromJson(response.data as Map<String, dynamic>);
   }
 
+  Future<void> claimReferralReward(String referralId, int deviceId) async {
+    await _dio.post('/promotions/referrals/$referralId/claim',
+        data: {'deviceId': deviceId});
+  }
+
   Future<ReferralInfo> getReferralInfo() async {
-    final response = await _dio.get('/api/promotions/referral-info');
+    final response = await _dio.get('/promotions/referral-info');
     return ReferralInfo.fromJson(response.data as Map<String, dynamic>);
   }
 }
@@ -89,7 +102,8 @@ final promotionsRepositoryProvider = Provider<PromotionsRepository>((ref) {
   return PromotionsRepository(dio);
 });
 
-final referralInfoProvider = FutureProvider.autoDispose<ReferralInfo>((ref) async {
+final referralInfoProvider =
+    FutureProvider.autoDispose<ReferralInfo>((ref) async {
   final repo = ref.watch(promotionsRepositoryProvider);
   return repo.getReferralInfo();
 });

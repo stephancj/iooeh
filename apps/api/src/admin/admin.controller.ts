@@ -347,12 +347,12 @@ export class AdminController {
     return this.adminService.listSubscriptions(p, l);
   }
 
-  @Patch('subscriptions/:userId')
+  @Patch('subscriptions/:deviceId')
   @HttpCode(HttpStatus.OK)
   upsertSubscription(
-    @Param('userId', ParseIntPipe) userId: number,
+    @Param('deviceId', ParseIntPipe) deviceId: number,
     @Body() body: UpdateSubscriptionDto,
   ) {
-    return this.adminService.upsertSubscription(userId, body);
+    return this.adminService.upsertSubscription(deviceId, body);
   }
 }

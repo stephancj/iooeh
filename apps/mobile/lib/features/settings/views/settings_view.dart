@@ -9,8 +9,7 @@ import '../../../core/widgets/product_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../entitlements/models/entitlements_model.dart';
 import '../../entitlements/providers/entitlements_provider.dart';
-import '../../payments/views/payments_view.dart';
-import '../../vehicles/providers/vehicles_provider.dart';
+import '../../payments/views/vehicle_subscriptions_view.dart';
 import '../../vehicles/views/add_vehicle_view.dart';
 import '../../promotions/redeem_dialog.dart';
 import '../../promotions/referral_view.dart';
@@ -88,7 +87,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     final user = ref.watch(authProvider).user;
     final displayName = user?.displayName ?? '';
     final rightsAsync = ref.watch(entitlementsProvider);
-    final vehiclesAsync = ref.watch(vehiclesProvider);
+    final vehiclesAsync = ref.watch(vehicleSubscriptionsProvider);
     final rights = rightsAsync.valueOrNull;
     final disabledAlerts = user == null ||
             !ref.watch(authProvider).userDetailsLoaded ||
@@ -139,35 +138,34 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                                 style: AppTextStyles.bodySecondary),
                             const SizedBox(height: 16),
                             FilledButton.icon(
-                              onPressed: () => Navigator.push(
-                                  context,
-                                  TrackeoRoute(
-                                      builder: (_) => const AddVehicleView())),
+                              onPressed: () async {
+                                await Navigator.push(
+                                    context,
+                                    TrackeoRoute(
+                                        builder: (_) =>
+                                            const AddVehicleView()));
+                                if (mounted) {
+                                  ref.invalidate(vehicleSubscriptionsProvider);
+                                }
+                              },
                               icon: const Icon(Icons.add_rounded),
                               label: const Text('Ajouter mon véhicule'),
                             ),
                           ],
                         ),
                       )
-                    : rightsAsync.when(
-                        data: (rights) => _PlanSurface(
-                          rights: rights,
-                          onTap: () => Navigator.push(
-                            context,
-                            TrackeoRoute(builder: (_) => const PaymentsView()),
-                          ),
-                        ),
-                        loading: () => const ProductSurface(
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
-                        error: (_, __) => _SettingsTile(
+                    : ProductSurface(
+                        padding: EdgeInsets.zero,
+                        child: _SettingsTile(
                           icon: Icons.workspace_premium_outlined,
-                          title: 'Abonnement',
-                          subtitle: 'Consulter les plans disponibles',
+                          title: 'Mes abonnements',
+                          subtitle:
+                              '${vehicles.length} véhicule${vehicles.length > 1 ? 's' : ''} · ${vehicles.where((entry) => needsSubscriptionAttention(Entitlements.fromJson(Map<String, dynamic>.from(entry['entitlements'] as Map)))).length} à traiter',
                           onTap: () => Navigator.push(
-                            context,
-                            TrackeoRoute(builder: (_) => const PaymentsView()),
-                          ),
+                              context,
+                              TrackeoRoute(
+                                  builder: (_) =>
+                                      const VehicleSubscriptionsView())),
                         ),
                       ),
                 loading: () => const ProductSurface(
@@ -176,48 +174,32 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                   icon: Icons.cloud_off_outlined,
                   title: 'Véhicules indisponibles',
                   subtitle: 'Appuyez pour réessayer',
-                  onTap: () => ref.invalidate(vehiclesProvider),
+                  onTap: () => ref.invalidate(vehicleSubscriptionsProvider),
                 ),
               ),
               const SizedBox(height: 24),
-              if ((rightsAsync.valueOrNull?.has('referral_program') ?? true) ||
-                  (rightsAsync.valueOrNull?.has('coupon_redemption') ??
-                      true)) ...[
-                const ProductSectionHeader(
-                  title: 'Promotions & Avantages',
-                  subtitle: 'Parrainez des amis ou utilisez un code promo.',
-                ),
-                const SizedBox(height: 10),
-                ProductSurface(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      if (rightsAsync.valueOrNull?.has('referral_program') ??
-                          true)
-                        _SettingsTile(
-                          icon: Icons.card_giftcard_rounded,
-                          title: 'Parrainer un ami',
-                          subtitle: 'Offrez 20% & gagnez 1 mois gratuit',
-                          onTap: () => ReferralView.navigateTo(context),
-                        ),
-                      if ((rightsAsync.valueOrNull?.has('referral_program') ??
-                              true) &&
-                          (rightsAsync.valueOrNull?.has('coupon_redemption') ??
-                              true))
-                        const Divider(height: 1, indent: 68),
-                      if (rightsAsync.valueOrNull?.has('coupon_redemption') ??
-                          true)
-                        _SettingsTile(
-                          icon: Icons.confirmation_number_outlined,
-                          title: 'Utiliser un code promo',
-                          subtitle: 'Débloquez vos réductions et avantages',
-                          onTap: () => RedeemDialog.show(context),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
+              const ProductSectionHeader(
+                title: 'Promotions & avantages',
+                subtitle: 'Parrainez des amis ou utilisez un code promo.',
+              ),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: Column(children: [
+                  _SettingsTile(
+                      icon: Icons.card_giftcard_rounded,
+                      title: 'Parrainer un ami',
+                      subtitle: 'Offrez 20 % et gagnez 30 jours',
+                      onTap: () => ReferralView.navigateTo(context)),
+                  const Divider(height: 1, indent: 68),
+                  _SettingsTile(
+                      icon: Icons.confirmation_number_outlined,
+                      title: 'Utiliser un code promo',
+                      subtitle: 'Appliquer un code à un véhicule',
+                      onTap: () => RedeemDialog.show(context)),
+                ]),
+              ),
+              const SizedBox(height: 24),
               const ProductSectionHeader(
                 title: 'Préférences',
                 subtitle: 'Contrôlez la façon dont ioeh vous prévient.',
@@ -337,7 +319,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
         activePanel = const AlertSettingsView(isDesktopPanel: true);
         break;
       case SettingsSection.payments:
-        activePanel = const PaymentsView(isDesktopPanel: true);
+        activePanel = const VehicleSubscriptionsView();
         break;
       case SettingsSection.referral:
         activePanel = const ReferralView(isDesktopPanel: true);
@@ -528,100 +510,6 @@ class _ProfileSurface extends StatelessWidget {
           ),
         ],
       );
-}
-
-class _PlanSurface extends StatelessWidget {
-  final Entitlements rights;
-  final VoidCallback onTap;
-
-  const _PlanSurface({required this.rights, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final remaining = rights.trialEndsAt?.difference(DateTime.now());
-    final days =
-        remaining == null ? null : (remaining.inSeconds / 86400).ceil();
-    final trial = rights.status == 'trial' && days != null
-        ? days > 0
-            ? 'Essai gratuit · $days jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}'
-            : 'Essai expiré'
-        : null;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: ProductSurface(
-        borderColor: AppColors.primary.withValues(alpha: .35),
-        child: Row(
-          children: [
-            const ProductIcon(icon: Icons.workspace_premium_outlined),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Abonnement du compte',
-                          style: AppTextStyles.cardTitle,
-                        ),
-                      ),
-                      _StatusPill(
-                        status: rights.status == 'trial' &&
-                                days != null &&
-                                days <= 0
-                            ? 'expired'
-                            : rights.status,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    trial ?? 'Plan ${rights.planName}',
-                    style: AppTextStyles.bodySecondary,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final String status;
-  const _StatusPill({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status) {
-      'active' => 'Actif',
-      'trial' => 'Essai',
-      'suspended' => 'Suspendu',
-      'expired' => 'Expiré',
-      'cancelled' => 'Annulé',
-      _ => status,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.pastelGreen,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.label.copyWith(
-          color: AppColors.primaryDark,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
 }
 
 class _SettingsTile extends StatelessWidget {

@@ -47,7 +47,7 @@ export class SecurityService {
   ) {}
 
   async createSos(ownerId: number, deviceId: number) {
-    await this.entitlements.assertFeature(ownerId, 'sos_alerts');
+    await this.entitlements.assertFeature(ownerId, 'sos_alerts', deviceId);
     return this.createCritical(
       ownerId,
       deviceId,
@@ -58,7 +58,7 @@ export class SecurityService {
   }
 
   async declareTheft(ownerId: number, deviceId: number) {
-    await this.entitlements.assertFeature(ownerId, 'theft_mode');
+    await this.entitlements.assertFeature(ownerId, 'theft_mode', deviceId);
     const existing = await this.incidentRepo.findOne({
       where: {
         ownerId,
@@ -231,7 +231,7 @@ export class SecurityService {
     deviceId: number,
     durationMinutes: number,
   ) {
-    await this.entitlements.assertFeature(ownerId, 'public_tracking_links');
+    await this.entitlements.assertFeature(ownerId, 'public_tracking_links', deviceId);
     await this.vehicles.assertOwner(deviceId, ownerId);
     const max = await this.entitlements.getNumber(
       ownerId,
@@ -324,6 +324,7 @@ export class SecurityService {
         !(await this.entitlements.hasFeature(
           incident.ownerId,
           'automatic_escalation',
+          incident.deviceId,
         ))
       )
         continue;
@@ -363,7 +364,7 @@ export class SecurityService {
       });
       if (
         exists ||
-        !(await this.entitlements.hasFeature(row.ownerId, 'sos_alerts'))
+        !(await this.entitlements.hasFeature(row.ownerId, 'sos_alerts', Number(row.deviceId)))
       )
         continue;
       await this.createCritical(

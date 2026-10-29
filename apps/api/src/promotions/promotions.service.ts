@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Subscription, SubscriptionStatus } from '../admin/subscription.entity';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { Plan } from '../entitlements/plan.entity';
@@ -14,6 +14,9 @@ import { Coupon, CouponRewardType } from './entities/coupon.entity';
 import { CouponRedemption } from './entities/coupon-redemption.entity';
 import { Referral, ReferralStatus } from './entities/referral.entity';
 import { CreateCouponDto } from './promotions.dto';
+import { VehicleSubscription } from '../entitlements/vehicle-subscription.entity';
+import { DeviceAssignment } from '../admin/device-assignment.entity';
+import { Payment, PaymentStatus } from '../payments/payment.entity';
 
 @Injectable()
 export class PromotionsService {
@@ -36,13 +39,13 @@ export class PromotionsService {
   /**
    * Utilise (Redeem) un code coupon ou un code parrainage directement.
    */
-  async redeemCode(userId: number, rawCode: string) {
+  async redeemCode(userId: number, rawCode: string, deviceId?: number) {
     const code = rawCode.trim().toUpperCase();
 
     // 1. Vérifier s'il s'agit d'un Code Promo / Coupon
     const coupon = await this.couponRepo.findOne({ where: { code } });
     if (coupon) {
-      return this.redeemCoupon(userId, coupon);
+      return this.redeemCoupon(userId, coupon, deviceId);
     }
 
     // 2. Vérifier s'il s'agit d'un Code Parrainage
@@ -54,101 +57,64 @@ export class PromotionsService {
     throw new NotFoundException('Code promo ou code parrainage invalide.');
   }
 
+  async previewCode(userId: number, rawCode: string, deviceId?: number) {
+    const code = rawCode.trim().toUpperCase();
+    const coupon = await this.couponRepo.findOne({ where: { code } });
+    if (coupon) {
+      if (!coupon.isActive || (coupon.expiresAt && coupon.expiresAt < new Date())) throw new BadRequestException('Code inactif ou expiré.');
+      if (coupon.rewardType !== CouponRewardType.FREE_PLAN_GIFT && coupon.rewardType !== CouponRewardType.FREE_SUBSCRIPTION_DAYS) throw new BadRequestException('Utilisez ce code lors du paiement.');
+      if (!deviceId) throw new BadRequestException('Choisissez le véhicule concerné.');
+      await this.entitlementsService.ensureVehicleSubscription(userId, deviceId);
+      const plan = coupon.grantedPlanId ? await this.planRepo.findOne({ where: { id: coupon.grantedPlanId, isActive: true } }) : null;
+      if (coupon.rewardType === CouponRewardType.FREE_PLAN_GIFT && !plan) throw new BadRequestException('Le plan offert est indisponible.');
+      return { type: coupon.rewardType, days: Number(coupon.rewardValue), planName: plan?.name ?? null };
+    }
+    const referrer = await this.userRepo.findOne({ where: { referralCode: code } });
+    if (!referrer || referrer.id === userId) throw new NotFoundException('Code promo ou parrainage invalide.');
+    return { type: 'REFERRAL', days: null, planName: null };
+  }
+
   /**
    * Traitement d'un Coupon (Dynamic Redeem)
    */
-  private async redeemCoupon(userId: number, coupon: Coupon) {
-    if (!coupon.isActive) {
-      throw new BadRequestException('Ce code promo n’est plus actif.');
-    }
-    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-      throw new BadRequestException('Ce code promo a expiré.');
-    }
-    if (coupon.maxRedemptions !== null && coupon.redemptionsCount >= coupon.maxRedemptions) {
-      throw new BadRequestException('Ce code promo a atteint le nombre maximal d’utilisations.');
-    }
-
-    // Nombre d'utilisations par cet utilisateur
-    const userRedemptionsCount = await this.redemptionRepo.count({
-      where: { userId, couponId: coupon.id },
+  private async redeemCoupon(userId: number, coupon: Coupon, deviceId?: number) {
+    if (!deviceId) throw new BadRequestException('Choisissez le véhicule concerné.');
+    const initial = await this.entitlementsService.ensureVehicleSubscription(userId, deviceId);
+    const result = await this.couponRepo.manager.transaction(async (manager) => {
+      const coupons = manager.getRepository(Coupon);
+      const locked = await coupons.findOne({ where: { id: coupon.id }, lock: { mode: 'pessimistic_write' } });
+      if (!locked || !locked.isActive || (locked.expiresAt && locked.expiresAt < new Date())) throw new BadRequestException('Ce code promo est inactif ou expiré.');
+      if (locked.maxRedemptions !== null && locked.redemptionsCount >= locked.maxRedemptions) throw new BadRequestException('Ce code promo a atteint sa limite.');
+      const redemptions = manager.getRepository(CouponRedemption);
+      if (await redemptions.count({ where: { userId, couponId: locked.id } }) >= locked.maxRedemptionsPerUser) throw new BadRequestException('Vous avez déjà utilisé ce code promo.');
+      const assignment = await manager.getRepository(DeviceAssignment).findOne({ where: { id: initial.assignmentId, userId, deviceId }, lock: { mode: 'pessimistic_write' } });
+      if (!assignment) throw new NotFoundException('Véhicule introuvable.');
+      const subs = manager.getRepository(VehicleSubscription);
+      const sub = await subs.findOneOrFail({ where: { assignmentId: assignment.id }, lock: { mode: 'pessimistic_write' } });
+      if (locked.rewardType !== CouponRewardType.FREE_SUBSCRIPTION_DAYS && locked.rewardType !== CouponRewardType.FREE_PLAN_GIFT) throw new BadRequestException('Ce code est indisponible ou doit être utilisé au paiement.');
+      const currentEnd = sub.status === SubscriptionStatus.TRIAL ? sub.trialEndsAt : sub.nextBillingDate;
+      const now = new Date();
+      const base = currentEnd && currentEnd > now ? currentEnd : now;
+      const days = Number(locked.rewardValue);
+      if (!Number.isInteger(days) || days <= 0) throw new BadRequestException('Durée de coupon invalide.');
+      const previousPlan = sub.plan;
+      if (locked.rewardType === CouponRewardType.FREE_PLAN_GIFT) {
+        if (!locked.grantedPlanId) throw new BadRequestException('Aucun plan associé au coupon.');
+        const plan = await manager.getRepository(Plan).findOne({ where: { id: locked.grantedPlanId, isActive: true } });
+        if (!plan) throw new NotFoundException('Plan offert introuvable.');
+        sub.planId = plan.id; sub.plan = plan.code;
+      }
+      sub.status = SubscriptionStatus.ACTIVE;
+      sub.nextBillingDate = new Date(base.getTime() + days * 86400000);
+      sub.trialEndsAt = null;
+      await subs.save(sub);
+      locked.redemptionsCount += 1;
+      await coupons.save(locked);
+      await redemptions.save(redemptions.create({ userId, couponId: locked.id, rewardType: locked.rewardType, rewardValue: locked.rewardValue, metadata: { deviceId, assignmentId: assignment.id, previousPlan, nextBillingDate: sub.nextBillingDate } }));
+      return { success: true, message: `${days} jour(s) offerts ajoutés à votre véhicule.`, rewardType: locked.rewardType, nextBillingDate: sub.nextBillingDate };
     });
-    if (userRedemptionsCount >= coupon.maxRedemptionsPerUser) {
-      throw new BadRequestException('Vous avez déjà utilisé ce code promo.');
-    }
-
-    const sub = await this.entitlementsService.ensureDefaultSubscription(userId);
-    let message = '';
-    const metadata: Record<string, unknown> = { previousPlan: sub.plan };
-
-    switch (coupon.rewardType) {
-      case CouponRewardType.FREE_PLAN_GIFT: {
-        if (!coupon.grantedPlanId) {
-          throw new BadRequestException('Ce coupon ne spécifie aucun plan d’abonnement offert.');
-        }
-        const grantedPlan = await this.planRepo.findOne({ where: { id: coupon.grantedPlanId } });
-        if (!grantedPlan) {
-          throw new NotFoundException('Le plan offert par ce coupon n’existe plus.');
-        }
-
-        sub.planId = grantedPlan.id;
-        sub.plan = grantedPlan.code;
-        sub.status = SubscriptionStatus.ACTIVE;
-        sub.trialEndsAt = null;
-
-        const durationDays = Number(coupon.rewardValue) || 30;
-        const now = new Date();
-        const baseDate = sub.nextBillingDate && sub.nextBillingDate > now ? sub.nextBillingDate : now;
-        sub.nextBillingDate = new Date(baseDate.getTime() + durationDays * 24 * 3600 * 1000);
-
-        message = `Félicitations ! Vous bénéficiez désormais du plan « ${grantedPlan.name} » offert pour ${durationDays} jour(s).`;
-        metadata.grantedPlanName = grantedPlan.name;
-        metadata.newNextBillingDate = sub.nextBillingDate;
-        break;
-      }
-
-      case CouponRewardType.FREE_SUBSCRIPTION_DAYS: {
-        const days = Number(coupon.rewardValue) || 30;
-        const now = new Date();
-        const baseDate = sub.nextBillingDate && sub.nextBillingDate > now ? sub.nextBillingDate : now;
-        sub.nextBillingDate = new Date(baseDate.getTime() + days * 24 * 3600 * 1000);
-        sub.status = SubscriptionStatus.ACTIVE;
-
-        message = `${days} jour(s) d’abonnement offerts ajoutés à votre compte !`;
-        metadata.newNextBillingDate = sub.nextBillingDate;
-        break;
-      }
-
-      case CouponRewardType.VEHICLE_QUOTA_BONUS:
-        throw new BadRequestException('Ce type de coupon n’est plus disponible.');
-
-      case CouponRewardType.PERCENTAGE_DISCOUNT:
-      case CouponRewardType.FIXED_DISCOUNT:
-        throw new BadRequestException(
-          'Ce code promo s’applique lors du paiement d’un abonnement (au checkout).',
-        );
-
-      default:
-        throw new BadRequestException('Type de récompense inconnu.');
-    }
-
-    await this.subscriptionRepo.save(sub);
     this.entitlementsService.invalidate(userId);
-
-    // Mettre à jour les compteurs du coupon et enregistrer la rédemption
-    coupon.redemptionsCount += 1;
-    await this.couponRepo.save(coupon);
-
-    await this.redemptionRepo.save(
-      this.redemptionRepo.create({
-        userId,
-        couponId: coupon.id,
-        rewardType: coupon.rewardType,
-        rewardValue: coupon.rewardValue,
-        metadata,
-      }),
-    );
-
-    return { success: true, message, rewardType: coupon.rewardType };
+    return result;
   }
 
   /**
@@ -159,23 +125,16 @@ export class PromotionsService {
       throw new BadRequestException('Vous ne pouvez pas utiliser votre propre code parrainage.');
     }
 
-    const existing = await this.referralRepo.findOne({ where: { refereeId } });
-    if (existing) {
-      throw new ConflictException('Vous avez déjà bénéficié d’un parrainage.');
-    }
-
-    await this.referralRepo.save(
-      this.referralRepo.create({
-        referrerId: referrer.id,
-        refereeId,
-        codeUsed: code,
-        status: ReferralStatus.PENDING,
-        referrerRewardType: CouponRewardType.FREE_SUBSCRIPTION_DAYS,
-        referrerRewardValue: '30',
-        refereeRewardType: CouponRewardType.PERCENTAGE_DISCOUNT,
-        refereeRewardValue: '20',
-      }),
-    );
+    await this.referralRepo.manager.transaction(async (manager) => {
+      await manager.getRepository(User).findOneOrFail({ where: { id: refereeId }, lock: { mode: 'pessimistic_write' } });
+      const payments = manager.getRepository(Payment);
+      const paid = await payments.count({ where: { userId: refereeId, status: PaymentStatus.SUCCESS, assignmentId: Not(IsNull()) } });
+      const pending = await payments.createQueryBuilder('p').where('p.user_id = :userId', { userId: refereeId }).andWhere('p.assignment_id IS NOT NULL').andWhere('p.status IN (:...statuses)', { statuses: [PaymentStatus.CREATED, PaymentStatus.PENDING] }).andWhere('(p.expires_at IS NULL OR p.expires_at > NOW())').getCount();
+      if (paid || pending) throw new BadRequestException('Le parrainage doit être appliqué avant le premier paiement et avant de démarrer un paiement.');
+      const referrals = manager.getRepository(Referral);
+      if (await referrals.findOne({ where: { refereeId } })) throw new ConflictException('Vous avez déjà bénéficié d’un parrainage.');
+      await referrals.save(referrals.create({ referrerId: referrer.id, refereeId, codeUsed: code, status: ReferralStatus.PENDING, referrerRewardType: CouponRewardType.FREE_SUBSCRIPTION_DAYS, referrerRewardValue: '30', refereeRewardType: CouponRewardType.PERCENTAGE_DISCOUNT, refereeRewardValue: '20' }));
+    });
 
     return {
       success: true,
@@ -268,42 +227,32 @@ export class PromotionsService {
     );
   }
 
-  /**
-   * Déclenché lors d'un paiement réussi : Qualifie le parrainage et crédite le parrain !
-   */
-  async qualifyReferralOnPayment(refereeId: number, paymentId?: string) {
-    const referral = await this.referralRepo.findOne({
-      where: { refereeId, status: ReferralStatus.PENDING },
+  async claimReferralReward(userId: number, referralId: string, deviceId: number) {
+    const initial = await this.entitlementsService.ensureVehicleSubscription(userId, deviceId);
+    const result = await this.referralRepo.manager.transaction(async (manager) => {
+      const referrals = manager.getRepository(Referral);
+      const referral = await referrals.findOne({ where: { id: referralId, referrerId: userId }, lock: { mode: 'pessimistic_write' } });
+      if (!referral || referral.status !== ReferralStatus.QUALIFIED) throw new BadRequestException('Récompense indisponible ou déjà utilisée.');
+      const assignment = await manager.getRepository(DeviceAssignment).findOne({ where: { id: initial.assignmentId, userId, deviceId }, lock: { mode: 'pessimistic_write' } });
+      if (!assignment) throw new NotFoundException('Véhicule introuvable.');
+      const subs = manager.getRepository(VehicleSubscription);
+      const sub = await subs.findOneOrFail({ where: { assignmentId: assignment.id }, lock: { mode: 'pessimistic_write' } });
+      const now = new Date();
+      const currentEnd = sub.status === SubscriptionStatus.TRIAL ? sub.trialEndsAt : sub.nextBillingDate;
+      const base = currentEnd && currentEnd > now ? currentEnd : now;
+      const days = Number(referral.referrerRewardValue) || 30;
+      sub.nextBillingDate = new Date(base.getTime() + days * 86400000);
+      sub.status = SubscriptionStatus.ACTIVE;
+      sub.trialEndsAt = null;
+      await subs.save(sub);
+      referral.status = ReferralStatus.REWARDED;
+      await referrals.save(referral);
+      const redemptions = manager.getRepository(CouponRedemption);
+      await redemptions.save(redemptions.create({ userId, referralId: referral.id, rewardType: referral.referrerRewardType, rewardValue: referral.referrerRewardValue, metadata: { deviceId, assignmentId: assignment.id, nextBillingDate: sub.nextBillingDate } }));
+      return { deviceId, days, nextBillingDate: sub.nextBillingDate };
     });
-    if (!referral) return;
-
-    referral.status = ReferralStatus.QUALIFIED;
-    await this.referralRepo.save(referral);
-
-    // Recompenser le Parrain (ex: 30 jours offerts sur son abonnement)
-    const referrerSub = await this.entitlementsService.ensureDefaultSubscription(referral.referrerId);
-    const days = Number(referral.referrerRewardValue) || 30;
-    const now = new Date();
-    const baseDate = referrerSub.nextBillingDate && referrerSub.nextBillingDate > now ? referrerSub.nextBillingDate : now;
-    referrerSub.nextBillingDate = new Date(baseDate.getTime() + days * 24 * 3600 * 1000);
-    referrerSub.status = SubscriptionStatus.ACTIVE;
-    await this.subscriptionRepo.save(referrerSub);
-    this.entitlementsService.invalidate(referral.referrerId);
-
-    referral.status = ReferralStatus.REWARDED;
-    await this.referralRepo.save(referral);
-
-    // Enregistrer dans coupon_redemptions
-    await this.redemptionRepo.save(
-      this.redemptionRepo.create({
-        userId: referral.referrerId,
-        referralId: referral.id,
-        rewardType: referral.referrerRewardType,
-        rewardValue: referral.referrerRewardValue,
-        appliedToPaymentId: paymentId ?? null,
-        metadata: { refereeId, message: `Récompense parrainage filleul ID ${refereeId}` },
-      }),
-    );
+    this.entitlementsService.invalidate(userId);
+    return result;
   }
 
   /**

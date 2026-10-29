@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Subscription, SubscriptionStatus } from '../admin/subscription.entity';
+import { DeviceAssignment } from '../admin/device-assignment.entity';
+import { VehicleSubscription } from './vehicle-subscription.entity';
 import { Geofence } from '../geofences/entities/geofence.entity';
 import { Feature } from './feature.entity';
 import { PlanFeature } from './plan-feature.entity';
@@ -46,7 +48,41 @@ export class EntitlementsService {
     private readonly planFeatureRepo: Repository<PlanFeature>,
     @InjectRepository(Geofence)
     private readonly geofenceRepo: Repository<Geofence>,
+    @InjectRepository(DeviceAssignment)
+    private readonly assignmentRepo: Repository<DeviceAssignment>,
+    @InjectRepository(VehicleSubscription)
+    private readonly vehicleSubscriptionRepo: Repository<VehicleSubscription>,
   ) {}
+
+  /** Returns the subscription for an owned vehicle, creating its seven-day trial once. */
+  async ensureVehicleSubscription(userId: number, deviceId: number): Promise<VehicleSubscription> {
+    const assignment = await this.assignmentRepo.findOne({ where: { userId, deviceId } });
+    if (!assignment) throw new NotFoundException('Véhicule introuvable.');
+    const existing = await this.vehicleSubscriptionRepo.findOne({ where: { assignmentId: assignment.id } });
+    if (existing) return existing;
+    const plan = await this.planRepo.findOne({ where: { code: 'free', isActive: true } });
+    if (!plan) throw new NotFoundException('Le plan Free par défaut est introuvable.');
+    await this.vehicleSubscriptionRepo.createQueryBuilder().insert().values({
+      assignmentId: assignment.id,
+      planId: plan.id,
+      plan: plan.code,
+      status: SubscriptionStatus.TRIAL,
+      trialEndsAt: new Date(new Date(assignment.createdAt).getTime() + 7 * 24 * 3600 * 1000),
+      nextBillingDate: null,
+      notes: null,
+    }).orIgnore().execute();
+    return this.vehicleSubscriptionRepo.findOneOrFail({ where: { assignmentId: assignment.id } });
+  }
+
+  async findVehicleSubscriptionForPayment(userId: number, assignmentId: number): Promise<VehicleSubscription> {
+    const assignment = await this.assignmentRepo.findOne({ where: { id: assignmentId, userId } });
+    if (!assignment) throw new NotFoundException('Affectation du véhicule introuvable.');
+    return this.vehicleSubscriptionRepo.findOneOrFail({ where: { assignmentId } });
+  }
+
+  saveVehicleSubscription(subscription: VehicleSubscription): Promise<VehicleSubscription> {
+    return this.vehicleSubscriptionRepo.save(subscription);
+  }
 
   async ensureDefaultSubscription(userId: number): Promise<Subscription> {
     const existing = await this.subscriptionRepo.findOne({ where: { userId } });
@@ -80,7 +116,35 @@ export class EntitlementsService {
   async getForUser(userId: number): Promise<UserEntitlements> {
     const cached = this.cache.get(userId);
     if (cached && Date.now() - cached.at < this.cacheTtlMs) return cached.value;
-    const subscription = await this.ensureDefaultSubscription(userId);
+    const assignments = await this.assignmentRepo.find({ where: { userId } });
+    const vehicleRights = await Promise.all(assignments.map((item) => this.getForVehicle(userId, item.deviceId)));
+    let representative = vehicleRights.find((item) => item.accessAllowed) ?? vehicleRights[0];
+    if (!representative) {
+      const freePlan = await this.planRepo.findOne({ where: { code: 'free', isActive: true } });
+      if (!freePlan) throw new NotFoundException('Le plan Free par défaut est introuvable.');
+      representative = await this.resolveSubscription({ id: '', planId: freePlan.id, plan: freePlan.code, status: SubscriptionStatus.TRIAL, trialEndsAt: null, nextBillingDate: null } as Subscription);
+    }
+    const result: UserEntitlements = { ...representative, features: { ...representative.features } };
+    if (vehicleRights.length) {
+      result.accessAllowed = vehicleRights.some((item) => item.accessAllowed);
+      result.features = {};
+      for (const rights of vehicleRights.filter((item) => item.accessAllowed)) {
+        for (const [code, value] of Object.entries(rights.features)) {
+          if (typeof value === 'boolean') result.features[code] = value || result.features[code] === true;
+          else if (typeof value === 'number') result.features[code] = Math.max(value, typeof result.features[code] === 'number' ? result.features[code] as number : 0);
+          else result.features[code] = value;
+        }
+      }
+    }
+    this.cache.set(userId, { at: Date.now(), value: result });
+    return result;
+  }
+
+  async getForVehicle(userId: number, deviceId: number): Promise<UserEntitlements> {
+    return this.resolveSubscription(await this.ensureVehicleSubscription(userId, deviceId));
+  }
+
+  private async resolveSubscription(subscription: Subscription | VehicleSubscription): Promise<UserEntitlements> {
     let plan = subscription.planId
       ? await this.planRepo.findOne({ where: { id: subscription.planId } })
       : null;
@@ -99,7 +163,10 @@ export class EntitlementsService {
         subscription.status === SubscriptionStatus.TRIAL) &&
       (subscription.status !== SubscriptionStatus.TRIAL ||
         !subscription.trialEndsAt ||
-        new Date(subscription.trialEndsAt).getTime() > now);
+        new Date(subscription.trialEndsAt).getTime() > now) &&
+      (subscription.status !== SubscriptionStatus.ACTIVE ||
+        !subscription.nextBillingDate ||
+        new Date(subscription.nextBillingDate).getTime() > now);
 
     const features: Record<string, boolean | number | string> = {};
     for (const item of assignments) {
@@ -122,7 +189,6 @@ export class EntitlementsService {
       accessAllowed,
       features,
     };
-    this.cache.set(userId, { at: Date.now(), value: result });
     return result;
   }
 
@@ -130,13 +196,18 @@ export class EntitlementsService {
     this.cache.delete(userId);
   }
 
-  async hasFeature(userId: number, code: string): Promise<boolean> {
-    const entitlements = await this.getForUser(userId);
-    return entitlements.accessAllowed && entitlements.features[code] === true;
+  async hasFeature(userId: number, code: string, deviceId?: number): Promise<boolean> {
+    try {
+      const entitlements = await (deviceId == null ? this.getForUser(userId) : this.getForVehicle(userId, deviceId));
+      return entitlements.accessAllowed && entitlements.features[code] === true;
+    } catch (error) {
+      if (error instanceof NotFoundException && deviceId != null) return false;
+      throw error;
+    }
   }
 
-  async assertFeature(userId: number, code: string): Promise<void> {
-    const entitlements = await this.getForUser(userId);
+  async assertFeature(userId: number, code: string, deviceId?: number): Promise<void> {
+    const entitlements = await (deviceId == null ? this.getForUser(userId) : this.getForVehicle(userId, deviceId));
     if (!entitlements.accessAllowed || entitlements.features[code] !== true) {
       throw new ForbiddenException(
         `La fonctionnalité « ${code} » n’est pas incluse dans votre abonnement.`,
@@ -144,8 +215,8 @@ export class EntitlementsService {
     }
   }
 
-  async getNumber(userId: number, code: string): Promise<number> {
-    const entitlements = await this.getForUser(userId);
+  async getNumber(userId: number, code: string, deviceId?: number): Promise<number> {
+    const entitlements = await (deviceId == null ? this.getForUser(userId) : this.getForVehicle(userId, deviceId));
     const value = entitlements.features[code];
     if (!entitlements.accessAllowed || typeof value !== 'number') {
       throw new ForbiddenException(
@@ -155,8 +226,8 @@ export class EntitlementsService {
     return value;
   }
 
-  async assertHistoryRange(userId: number, from: Date): Promise<void> {
-    const days = await this.getNumber(userId, 'history_retention_days');
+  async assertHistoryRange(userId: number, from: Date, deviceId?: number): Promise<void> {
+    const days = await this.getNumber(userId, 'history_retention_days', deviceId);
     const earliest = Date.now() - days * 24 * 3600 * 1000;
     if (from.getTime() < earliest) {
       throw new ForbiddenException(
