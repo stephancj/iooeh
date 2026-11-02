@@ -305,7 +305,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                       title: 'Parrainer un ami',
                       subtitle: 'Offrez 20 % et gagnez 30 jours',
                       onTap: () => ReferralView.navigateTo(context)),
-                  const Divider(height: 1, indent: 68),
+                  const SizedBox(height: 4),
                   _SettingsTile(
                       icon: Icons.confirmation_number_outlined,
                       title: 'Utiliser un code promo',
@@ -332,7 +332,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                         TrackeoRoute(builder: (_) => const DeleteAccountView()),
                       ),
                     ),
-                    const Divider(height: 1, indent: 68),
+                    const SizedBox(height: 4),
                     _SettingsTile(
                       icon: Icons.logout_rounded,
                       iconColor: AppColors.statusAlert,
@@ -398,8 +398,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               }),
             ),
           ),
-          const VerticalDivider(
-              width: 1, thickness: 1, color: AppColors.divider),
+          const SizedBox(width: 16),
           Expanded(child: activePanel),
         ],
       ),
@@ -705,10 +704,7 @@ class _SettingsSidebar extends StatelessWidget {
           isActive: activeSection == SettingsSection.referral,
           onTap: () => onSectionChanged(SettingsSection.referral),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Divider(),
-        ),
+        const SizedBox(height: 24),
         _SidebarItem(
           icon: Icons.delete_outline,
           activeIcon: Icons.delete,
