@@ -15,6 +15,8 @@ const _attentionSurface = Color(0xFFFFF3DC);
 const _attentionBadge = Color(0xFFFFE2A7);
 const _activeBadge = Color(0xFFD4EFE3);
 const _pageBackground = Color(0xFFFAF9F6);
+const _ink = Color(0xFF091837);
+const _iconBackground = Color(0xFFE0F0E7);
 
 final vehicleSubscriptionsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>(
@@ -61,9 +63,7 @@ class _VehicleSubscriptionsViewState
           centerTitle: false,
           title: const Text('Mes abonnements',
               style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryDark)),
+                  fontSize: 22, fontWeight: FontWeight.w800, color: _ink)),
         ),
         bottomNavigationBar: MediaQuery.sizeOf(context).width < 600
             ? const _ProfileSubpageNavigation()
@@ -138,14 +138,25 @@ class _VehicleSubscriptionsViewState
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text(
-                            '${all.length} véhicule${all.length > 1 ? 's' : ''}${attentionCount > 0 ? ' · $attentionCount à traiter' : ''}',
-                            style: AppTextStyles.bodySecondary
-                                .copyWith(fontSize: 14)),
+                        Text.rich(TextSpan(
+                          style: AppTextStyles.bodySecondary
+                              .copyWith(fontSize: 15),
+                          children: [
+                            TextSpan(
+                                text:
+                                    '${all.length} véhicule${all.length > 1 ? 's' : ''}'),
+                            if (attentionCount > 0)
+                              TextSpan(
+                                  text:
+                                      ' · $attentionCount action${attentionCount > 1 ? 's' : ''} nécessaire${attentionCount > 1 ? 's' : ''}',
+                                  style: const TextStyle(
+                                      color: Color(0xFFB45F00),
+                                      fontWeight: FontWeight.w600)),
+                          ],
+                        )),
                         const SizedBox(height: 20),
                         TextField(
                             decoration: const InputDecoration(
-                                labelText: 'Rechercher un véhicule',
                                 hintText: 'Nom, plaque ou IMEI',
                                 prefixIcon: Icon(Icons.search),
                                 filled: true,
@@ -156,7 +167,7 @@ class _VehicleSubscriptionsViewState
                             onChanged: (v) => setState(() => query = v)),
                         const SizedBox(height: 16),
                         Wrap(
-                            spacing: 8,
+                            spacing: 6,
                             runSpacing: 8,
                             children: [
                               'Tous',
@@ -164,34 +175,32 @@ class _VehicleSubscriptionsViewState
                               'En essai',
                               'Actifs'
                             ]
-                                .map((v) => ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(minHeight: 44),
-                                    child: ChoiceChip(
-                                        label: Text('$v (${counts[v]})'),
-                                        selected: filter == v,
-                                        showCheckmark: false,
-                                        selectedColor: _protectionGreen,
-                                        backgroundColor: AppColors.surface,
-                                        visualDensity: VisualDensity.compact,
-                                        labelPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 2),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 3),
-                                        labelStyle: TextStyle(
-                                            color: filter == v
-                                                ? Colors.white
-                                                : AppColors.textPrimary,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(24),
-                                            side: const BorderSide(
-                                                color: AppColors.divider)),
-                                        onSelected: (_) =>
-                                            setState(() => filter = v))))
+                                .map((v) => Semantics(
+                                    button: true,
+                                    selected: filter == v,
+                                    child: Material(
+                                      color: filter == v
+                                          ? _protectionGreen
+                                          : const Color(0xFFF1F0ED),
+                                      borderRadius: BorderRadius.circular(24),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(24),
+                                        onTap: () => setState(() => filter = v),
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                              minHeight: 44),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 10),
+                                          child: Text('$v (${counts[v]})',
+                                              style: TextStyle(
+                                                  color: filter == v
+                                                      ? Colors.white
+                                                      : _ink,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 12)),
+                                        ),
+                                      ),
+                                    )))
                                 .toList()),
                         const SizedBox(height: 16),
                         if (all.isEmpty)
@@ -225,7 +234,7 @@ class _VehicleSubscriptionsViewState
                                   entry['entitlements'] as Map));
                           final label = subscriptionStatusLabel(rights);
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.only(bottom: 12),
                             child: Material(
                               color: AppColors.surface,
                               shape: RoundedRectangleBorder(
@@ -240,13 +249,14 @@ class _VehicleSubscriptionsViewState
                                         builder: (_) => _Details(
                                             vehicle: vehicle, rights: rights))),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 20),
                                   child: Row(children: [
                                     const CircleAvatar(
-                                      radius: 24,
-                                      backgroundColor: AppColors.pastelGreen,
-                                      child: Icon(Icons.two_wheeler_outlined,
-                                          color: _protectionGreen, size: 25),
+                                      radius: 30,
+                                      backgroundColor: _iconBackground,
+                                      child: Icon(Icons.two_wheeler_rounded,
+                                          color: _ink, size: 29),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(
@@ -263,7 +273,8 @@ class _VehicleSubscriptionsViewState
                                               Text(vehicle['name'] as String,
                                                   style: AppTextStyles.cardTitle
                                                       .copyWith(
-                                                          fontSize: 16,
+                                                          color: _ink,
+                                                          fontSize: 18,
                                                           fontWeight:
                                                               FontWeight.w700)),
                                               _SubscriptionBadge(
@@ -273,8 +284,8 @@ class _VehicleSubscriptionsViewState
                                           const SizedBox(height: 3),
                                           Text(
                                               '${(vehicle['plate'] as String?)?.isNotEmpty == true ? vehicle['plate'] : vehicle['serialNumber']}',
-                                              style:
-                                                  AppTextStyles.bodySecondary),
+                                              style: AppTextStyles.bodySecondary
+                                                  .copyWith(fontSize: 14)),
                                           const SizedBox(height: 7),
                                           Text(label,
                                               style: AppTextStyles.bodySecondary
@@ -287,7 +298,7 @@ class _VehicleSubscriptionsViewState
                                         ])),
                                     const SizedBox(width: 8),
                                     const Icon(Icons.chevron_right_rounded,
-                                        color: AppColors.textHint),
+                                        color: _ink),
                                   ]),
                                 ),
                               ),
@@ -389,9 +400,7 @@ class _Details extends ConsumerWidget {
           centerTitle: false,
           title: const Text('Abonnement',
               style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryDark)),
+                  fontSize: 22, fontWeight: FontWeight.w800, color: _ink)),
         ),
         bottomNavigationBar: MediaQuery.sizeOf(context).width < 600
             ? const _ProfileSubpageNavigation()
@@ -403,19 +412,20 @@ class _Details extends ConsumerWidget {
                     children: [
               Row(children: [
                 Container(
-                    width: 56,
-                    height: 56,
+                    width: 68,
+                    height: 68,
                     decoration: const BoxDecoration(
-                        color: AppColors.pastelGreen, shape: BoxShape.circle),
-                    child: const Icon(Icons.two_wheeler_outlined,
-                        color: _protectionGreen, size: 28)),
+                        color: _iconBackground, shape: BoxShape.circle),
+                    child: const Icon(Icons.two_wheeler_rounded,
+                        color: _ink, size: 34)),
                 const SizedBox(width: 16),
                 Expanded(
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                       Text(currentVehicle['name'] as String,
-                          style: AppTextStyles.pageTitle),
+                          style: AppTextStyles.pageTitle.copyWith(
+                              color: _ink, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 4),
                       Text(
                           '${(currentVehicle['plate'] as String?)?.isNotEmpty == true ? currentVehicle['plate'] : currentVehicle['serialNumber']}',
@@ -440,7 +450,10 @@ class _Details extends ConsumerWidget {
                             trial
                                 ? subscriptionStatusLabel(currentRights)
                                 : currentRights.planName,
-                            style: AppTextStyles.pageTitleLarge),
+                            style: AppTextStyles.pageTitleLarge.copyWith(
+                                color: _ink,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 28)),
                         const SizedBox(height: 6),
                         Text(
                             trial && endLabel != null
@@ -454,7 +467,9 @@ class _Details extends ConsumerWidget {
                                 .copyWith(fontSize: 14))
                       ])),
               const SizedBox(height: 24),
-              const ProductSectionHeader(title: 'Votre formule comprend'),
+              const Text('Votre formule comprend',
+                  style: TextStyle(
+                      color: _ink, fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 10),
               ProductSurface(
                   child: Column(children: [
@@ -488,8 +503,8 @@ class _Details extends ConsumerWidget {
               ])),
               const SizedBox(height: 24),
               ProductSurface(
-                color: AppColors.pastelGreen,
-                borderColor: AppColors.pastelGreen,
+                color: _iconBackground,
+                borderColor: const Color(0xFFC6E1D3),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -528,7 +543,9 @@ class _Details extends ConsumerWidget {
                             style: FilledButton.styleFrom(
                                 backgroundColor: _protectionGreen,
                                 foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(48)),
+                                minimumSize: const Size.fromHeight(48),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12))),
                             child: Text(currentRights.status == 'active' &&
                                     currentRights.accessAllowed
                                 ? 'Gérer ma formule'

@@ -130,18 +130,33 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
             children: [
               if (!isDesktop) ...[
                 Row(children: [
-                  const Text('iooeh',
-                      style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1,
-                          color: _profileInk)),
-                  const SizedBox(width: 5),
-                  Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                          color: AppColors.primary, shape: BoxShape.circle)),
+                  Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Text('iooeh',
+                              style: TextStyle(
+                                  fontSize: 36,
+                                  height: 1,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.5,
+                                  color: _profileInk)),
+                          const SizedBox(width: 5),
+                          Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle)),
+                        ]),
+                        const SizedBox(height: 3),
+                        const Text('GPS PROTECTION',
+                            style: TextStyle(
+                                fontSize: 7,
+                                letterSpacing: 2.1,
+                                fontWeight: FontWeight.w600,
+                                color: _profileInk)),
+                      ]),
                   const Spacer(),
                   IconButton(
                     tooltip: _isEditing
@@ -488,7 +503,7 @@ class _ProfileSurface extends StatelessWidget {
   Widget _summary() => Row(
         children: [
           CircleAvatar(
-            radius: 29,
+            radius: 34,
             backgroundColor: _profileIconBackground,
             child:
                 const Icon(Icons.person_rounded, color: _profileInk, size: 32),
@@ -612,7 +627,7 @@ class _SettingsTile extends StatelessWidget {
                         Text(title,
                             style: const TextStyle(
                                 color: _profileInk,
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600)),
                         if (badge != null)
                           Container(

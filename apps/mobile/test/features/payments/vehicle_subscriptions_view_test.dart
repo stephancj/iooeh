@@ -95,7 +95,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Yamaha'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.ensureVisible(find.text('Yamaha'));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Yamaha'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Découvrir les formules'));
