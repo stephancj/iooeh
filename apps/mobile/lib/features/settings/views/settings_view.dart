@@ -20,6 +20,23 @@ import '../../../core/layout/responsive_layout.dart';
 enum SettingsSection { profile, alerts, payments, referral, deleteAccount }
 
 const _profileBackground = Color(0xFFFAF9F6);
+const _profileInk = Color(0xFF091837);
+const _profileGreen = Color(0xFF075B49);
+const _profileIconBackground = Color(0xFFE0F0E7);
+
+class _ProfileSectionTitle extends StatelessWidget {
+  final String title;
+  const _ProfileSectionTitle(this.title);
+
+  @override
+  Widget build(BuildContext context) => Text(title,
+      style: const TextStyle(
+        color: _profileInk,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -.3,
+      ));
+}
 
 class SettingsView extends ConsumerStatefulWidget {
   const SettingsView({super.key});
@@ -118,7 +135,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1,
-                          color: AppColors.primaryDark)),
+                          color: _profileInk)),
                   const SizedBox(width: 5),
                   Container(
                       width: 8,
@@ -137,7 +154,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                         _isEditing
                             ? Icons.close_rounded
                             : Icons.settings_outlined,
-                        color: AppColors.primaryDark),
+                        color: _profileInk),
                   ),
                 ]),
                 const SizedBox(height: 20),
@@ -146,7 +163,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                         fontSize: 30,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.7,
-                        color: AppColors.primaryDark)),
+                        color: _profileInk)),
                 const SizedBox(height: 20),
               ],
               _ProfileSurface(
@@ -162,10 +179,8 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 onCancel: _cancelEdit,
               ),
               const SizedBox(height: 24),
-              const ProductSectionHeader(
-                title: 'Votre protection',
-              ),
-              const SizedBox(height: 10),
+              const _ProfileSectionTitle('Votre protection'),
+              const SizedBox(height: 12),
               vehiclesAsync.when(
                 data: (vehicles) => vehicles.isEmpty
                     ? ProductSurface(
@@ -198,7 +213,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     : ProductSurface(
                         padding: EdgeInsets.zero,
                         child: _SettingsTile(
-                          icon: Icons.directions_car_outlined,
+                          icon: Icons.directions_car_filled_rounded,
                           title: 'Mes abonnements',
                           subtitle: _subscriptionSummary(vehicles),
                           onTap: () => Navigator.push(
@@ -218,14 +233,12 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 ),
               ),
               const SizedBox(height: 24),
-              const ProductSectionHeader(
-                title: 'Préférences',
-              ),
-              const SizedBox(height: 10),
+              const _ProfileSectionTitle('Préférences'),
+              const SizedBox(height: 12),
               ProductSurface(
                 padding: EdgeInsets.zero,
                 child: _SettingsTile(
-                  icon: Icons.notifications_active_outlined,
+                  icon: Icons.notifications_none_rounded,
                   title: 'Notifications et alertes',
                   subtitle: user != null &&
                           ref.watch(authProvider).userDetailsLoaded &&
@@ -246,14 +259,13 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 ),
               ),
               const SizedBox(height: 24),
-              const ProductSectionHeader(title: 'Aide'),
-              const SizedBox(height: 10),
+              const _ProfileSectionTitle('Aide'),
+              const SizedBox(height: 12),
               ProductSurface(
                 padding: EdgeInsets.zero,
                 child: _SettingsTile(
                   icon: Icons.help_outline_rounded,
-                  title: 'Besoin d’aide ?',
-                  subtitle: 'Écrivez-nous',
+                  title: 'Besoin d’aide ? Écrivez-nous',
                   onTap: () async {
                     final opened = await launchUrl(
                         Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
@@ -457,14 +469,6 @@ class _ProfileSurface extends StatelessWidget {
     required this.onCancel,
   });
 
-  String get initials {
-    final parts = displayName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    return parts.length == 1
-        ? parts.first.substring(0, 1).toUpperCase()
-        : '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) => ProductSurface(
         padding: const EdgeInsets.all(20),
@@ -485,37 +489,30 @@ class _ProfileSurface extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 29,
-            backgroundColor: AppColors.pastelGreen,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Color(0xFF086B55),
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            backgroundColor: _profileIconBackground,
+            child:
+                const Icon(Icons.person_rounded, color: _profileInk, size: 32),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(displayName, style: AppTextStyles.sectionTitle),
-                const SizedBox(height: 3),
-                Text(email, style: AppTextStyles.bodySecondary),
-                if (phone?.isNotEmpty == true) ...[
-                  const SizedBox(height: 3),
-                  Text(phone!, style: AppTextStyles.label),
-                ],
-                const SizedBox(height: 8),
+                Text(displayName,
+                    style: const TextStyle(
+                        color: _profileInk,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
                 Text('Modifier mon profil',
-                    style: AppTextStyles.bodySecondary.copyWith(
-                        color: const Color(0xFF086B55),
-                        fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        color: _profileGreen,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
+          const Icon(Icons.chevron_right_rounded, color: _profileInk),
         ],
       );
 
@@ -581,8 +578,8 @@ class _SettingsTile extends StatelessWidget {
 
   const _SettingsTile({
     required this.icon,
-    this.iconColor = AppColors.primaryDark,
-    this.iconBackground = AppColors.pastelGreen,
+    this.iconColor = _profileGreen,
+    this.iconBackground = _profileIconBackground,
     required this.title,
     this.subtitle,
     this.badge,
@@ -612,7 +609,11 @@ class _SettingsTile extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        Text(title, style: AppTextStyles.cardTitle),
+                        Text(title,
+                            style: const TextStyle(
+                                color: _profileInk,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                         if (badge != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -623,6 +624,7 @@ class _SettingsTile extends StatelessWidget {
                             ),
                             child: Text(badge!,
                                 style: AppTextStyles.label.copyWith(
+                                    fontSize: 11,
                                     color: const Color(0xFF855000),
                                     fontWeight: FontWeight.w700)),
                           ),
@@ -635,8 +637,7 @@ class _SettingsTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textHint),
+              const Icon(Icons.chevron_right_rounded, color: _profileInk),
             ],
           ),
         ),
