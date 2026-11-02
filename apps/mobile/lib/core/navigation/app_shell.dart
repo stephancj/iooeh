@@ -117,7 +117,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final selectedVehicleId = ref.watch(selectedVehicleIdProvider);
     final vehicles = ref.watch(vehiclesProvider).valueOrNull ?? [];
-    final selectedVehicle = vehicles.where((v) => v.id == selectedVehicleId).firstOrNull;
+    final selectedVehicle =
+        vehicles.where((v) => v.id == selectedVehicleId).firstOrNull;
 
     final desktopBody = IndexedStack(
       index: activeTab,
@@ -128,7 +129,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               width: 380,
               child: FleetListView(),
             ),
-            const VerticalDivider(width: 1, thickness: 1, color: AppColors.divider),
+            const VerticalDivider(
+                width: 1, thickness: 1, color: AppColors.divider),
             Expanded(
               child: Stack(
                 children: [
@@ -286,9 +288,9 @@ class _TrackeoBottomNav extends StatelessWidget {
               ),
               _NavItem(
                 pageIndex: 4,
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings,
-                label: 'Réglages',
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profil',
                 activeTab: activeTab,
                 onTap: () => onTabChanged(4),
               ),
@@ -444,7 +446,8 @@ class _TrackeoNavigationRail extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.gps_fixed_rounded, color: AppColors.primary, size: 24),
+              child: const Icon(Icons.gps_fixed_rounded,
+                  color: AppColors.primary, size: 24),
             ),
             const SizedBox(height: 32),
             Expanded(
@@ -482,9 +485,9 @@ class _TrackeoNavigationRail extends StatelessWidget {
               ),
             ),
             _RailItem(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings,
-              label: 'Réglages',
+              icon: Icons.person_outline_rounded,
+              activeIcon: Icons.person_rounded,
+              label: 'Profil',
               isActive: activeTab == 4,
               onTap: () => onTabChanged(4),
             ),
@@ -574,7 +577,8 @@ class _TrackeoSidebar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     alignment: Alignment.center,
-                    child: const Icon(Icons.gps_fixed_rounded, color: AppColors.primary, size: 24),
+                    child: const Icon(Icons.gps_fixed_rounded,
+                        color: AppColors.primary, size: 24),
                   ),
                   const SizedBox(width: 16),
                   const Text(
@@ -626,9 +630,9 @@ class _TrackeoSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: _SidebarItem(
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings,
-                label: 'Réglages',
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profil',
                 isActive: activeTab == 4,
                 onTap: () => onTabChanged(4),
               ),
@@ -665,7 +669,9 @@ class _SidebarItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: isActive ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -681,7 +687,8 @@ class _SidebarItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: isActive ? AppColors.primaryDark : AppColors.textPrimary,
+                  color:
+                      isActive ? AppColors.primaryDark : AppColors.textPrimary,
                 ),
               ),
             ],

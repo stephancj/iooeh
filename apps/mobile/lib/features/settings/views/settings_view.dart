@@ -118,6 +118,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 nameController: _nameController,
                 phoneController: _phoneController,
                 onSave: _saveProfile,
+                onEdit: () => setState(() => _isEditing = true),
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(
@@ -157,10 +158,9 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     : ProductSurface(
                         padding: EdgeInsets.zero,
                         child: _SettingsTile(
-                          icon: Icons.workspace_premium_outlined,
+                          icon: Icons.directions_car_outlined,
                           title: 'Mes abonnements',
-                          subtitle:
-                              '${vehicles.length} véhicule${vehicles.length > 1 ? 's' : ''} · ${vehicles.where((entry) => needsSubscriptionAttention(Entitlements.fromJson(Map<String, dynamic>.from(entry['entitlements'] as Map)))).length} à traiter',
+                          subtitle: _subscriptionSummary(vehicles),
                           onTap: () => Navigator.push(
                               context,
                               TrackeoRoute(
@@ -176,28 +176,6 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                   subtitle: 'Appuyez pour réessayer',
                   onTap: () => ref.invalidate(vehicleSubscriptionsProvider),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const ProductSectionHeader(
-                title: 'Promotions & avantages',
-                subtitle: 'Parrainez des amis ou utilisez un code promo.',
-              ),
-              const SizedBox(height: 10),
-              ProductSurface(
-                padding: EdgeInsets.zero,
-                child: Column(children: [
-                  _SettingsTile(
-                      icon: Icons.card_giftcard_rounded,
-                      title: 'Parrainer un ami',
-                      subtitle: 'Offrez 20 % et gagnez 30 jours',
-                      onTap: () => ReferralView.navigateTo(context)),
-                  const Divider(height: 1, indent: 68),
-                  _SettingsTile(
-                      icon: Icons.confirmation_number_outlined,
-                      title: 'Utiliser un code promo',
-                      subtitle: 'Appliquer un code à un véhicule',
-                      onTap: () => RedeemDialog.show(context)),
-                ]),
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(
@@ -227,6 +205,28 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     TrackeoRoute(builder: (_) => const AlertSettingsView()),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              const ProductSectionHeader(
+                title: 'Promotions & avantages',
+                subtitle: 'Parrainez des amis ou utilisez un code promo.',
+              ),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: Column(children: [
+                  _SettingsTile(
+                      icon: Icons.card_giftcard_rounded,
+                      title: 'Parrainer un ami',
+                      subtitle: 'Offrez 20 % et gagnez 30 jours',
+                      onTap: () => ReferralView.navigateTo(context)),
+                  const Divider(height: 1, indent: 68),
+                  _SettingsTile(
+                      icon: Icons.confirmation_number_outlined,
+                      title: 'Utiliser un code promo',
+                      subtitle: 'Appliquer un code à un véhicule',
+                      onTap: () => RedeemDialog.show(context)),
+                ]),
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(title: 'Aide'),
@@ -296,7 +296,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     final mobileLayout = Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Réglages'),
+        title: const Text('Profil'),
         actions: [
           TextButton(
             onPressed: _isEditing
@@ -393,6 +393,18 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
   }
 }
 
+String _subscriptionSummary(List<Map<String, dynamic>> vehicles) {
+  final attention = vehicles
+      .where((entry) => needsSubscriptionAttention(Entitlements.fromJson(
+          Map<String, dynamic>.from(entry['entitlements'] as Map))))
+      .length;
+  final vehiclesLabel =
+      '${vehicles.length} véhicule${vehicles.length > 1 ? 's' : ''}';
+  return attention == 0
+      ? '$vehiclesLabel · Aucune action nécessaire'
+      : '$vehiclesLabel · $attention action${attention > 1 ? 's' : ''} nécessaire${attention > 1 ? 's' : ''}';
+}
+
 class _ProfileSurface extends StatelessWidget {
   final String displayName;
   final String email;
@@ -402,6 +414,7 @@ class _ProfileSurface extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController phoneController;
   final VoidCallback onSave;
+  final VoidCallback onEdit;
 
   const _ProfileSurface({
     required this.displayName,
@@ -412,6 +425,7 @@ class _ProfileSurface extends StatelessWidget {
     required this.nameController,
     required this.phoneController,
     required this.onSave,
+    required this.onEdit,
   });
 
   String get initials {
@@ -428,7 +442,13 @@ class _ProfileSurface extends StatelessWidget {
         child: AnimatedSize(
           duration: AppMotion.base,
           curve: AppMotion.quint,
-          child: editing ? _editForm() : _summary(),
+          child: editing
+              ? _editForm()
+              : InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: _summary(),
+                ),
         ),
       );
 
@@ -436,11 +456,11 @@ class _ProfileSurface extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 29,
-            backgroundColor: AppColors.primaryDark,
+            backgroundColor: AppColors.pastelGreen,
             child: Text(
               initials,
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF086B55),
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
               ),
@@ -458,10 +478,15 @@ class _ProfileSurface extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(phone!, style: AppTextStyles.label),
                 ],
+                const SizedBox(height: 8),
+                Text('Modifier mon profil',
+                    style: AppTextStyles.bodySecondary.copyWith(
+                        color: const Color(0xFF086B55),
+                        fontWeight: FontWeight.w700)),
               ],
             ),
           ),
-          const Icon(Icons.edit_outlined, color: AppColors.textHint, size: 18),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
         ],
       );
 
