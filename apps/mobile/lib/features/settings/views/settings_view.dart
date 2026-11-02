@@ -625,9 +625,9 @@ class _SettingsTile extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         Text(title,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: _profileInk,
-                                fontSize: 15,
+                                fontSize: badge == null ? 15 : 14,
                                 fontWeight: FontWeight.w600)),
                         if (badge != null)
                           Container(

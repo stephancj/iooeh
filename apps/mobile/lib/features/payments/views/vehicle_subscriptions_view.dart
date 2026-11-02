@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/product_ui.dart';
 import '../../../core/navigation/trackeo_route.dart';
@@ -552,6 +553,23 @@ class _Details extends ConsumerWidget {
                                 : 'Découvrir les formules'),
                           )),
                     ]),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                leading: const Icon(Icons.help_outline_rounded,
+                    color: _protectionGreen),
+                title: const Text('Besoin d’aide ? Écrivez-nous',
+                    style: TextStyle(color: _protectionGreen, fontSize: 15)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: _ink),
+                onTap: () async {
+                  final opened = await launchUrl(
+                      Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
+                  if (!opened && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Écrivez-nous à contact@iooeh.com')));
+                  }
+                },
               ),
             ]))));
   }
