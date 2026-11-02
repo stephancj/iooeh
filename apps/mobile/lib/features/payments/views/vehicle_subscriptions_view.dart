@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/product_ui.dart';
 import '../../../core/navigation/trackeo_route.dart';
+import '../../../core/navigation/app_shell.dart';
 import '../../vehicles/repositories/vehicle_repository.dart';
 import '../../vehicles/views/add_vehicle_view.dart';
 import '../../entitlements/models/entitlements_model.dart';
@@ -11,6 +12,9 @@ import 'payments_view.dart';
 const _protectionGreen = Color(0xFF086B55);
 const _attentionInk = Color(0xFF855000);
 const _attentionSurface = Color(0xFFFFF3DC);
+const _attentionBadge = Color(0xFFFFE2A7);
+const _activeBadge = Color(0xFFD4EFE3);
+const _pageBackground = Color(0xFFFAF9F6);
 
 final vehicleSubscriptionsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>(
@@ -51,8 +55,19 @@ class _VehicleSubscriptionsViewState
   String filter = 'Tous';
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('Mes abonnements')),
+        backgroundColor: _pageBackground,
+        appBar: AppBar(
+          backgroundColor: _pageBackground,
+          centerTitle: false,
+          title: const Text('Mes abonnements',
+              style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark)),
+        ),
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 600
+            ? const _ProfileSubpageNavigation()
+            : null,
         body: ref.watch(vehicleSubscriptionsProvider).when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (_, __) => ProductEmptyState(
@@ -149,23 +164,34 @@ class _VehicleSubscriptionsViewState
                               'En essai',
                               'Actifs'
                             ]
-                                .map((v) => ChoiceChip(
-                                    label: Text('$v (${counts[v]})'),
-                                    selected: filter == v,
-                                    showCheckmark: false,
-                                    selectedColor: _protectionGreen,
-                                    backgroundColor: AppColors.surface,
-                                    labelStyle: TextStyle(
-                                        color: filter == v
-                                            ? Colors.white
-                                            : AppColors.textPrimary,
-                                        fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(24),
-                                        side: const BorderSide(
-                                            color: AppColors.divider)),
-                                    onSelected: (_) =>
-                                        setState(() => filter = v)))
+                                .map((v) => ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(minHeight: 44),
+                                    child: ChoiceChip(
+                                        label: Text('$v (${counts[v]})'),
+                                        selected: filter == v,
+                                        showCheckmark: false,
+                                        selectedColor: _protectionGreen,
+                                        backgroundColor: AppColors.surface,
+                                        visualDensity: VisualDensity.compact,
+                                        labelPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 3),
+                                        labelStyle: TextStyle(
+                                            color: filter == v
+                                                ? Colors.white
+                                                : AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(24),
+                                            side: const BorderSide(
+                                                color: AppColors.divider)),
+                                        onSelected: (_) =>
+                                            setState(() => filter = v))))
                                 .toList()),
                         const SizedBox(height: 16),
                         if (all.isEmpty)
@@ -216,45 +242,48 @@ class _VehicleSubscriptionsViewState
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Row(children: [
-                                    const ProductIcon(
-                                        icon: Icons.two_wheeler_outlined,
-                                        color: _protectionGreen),
+                                    const CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: AppColors.pastelGreen,
+                                      child: Icon(Icons.two_wheeler_outlined,
+                                          color: _protectionGreen, size: 25),
+                                    ),
                                     const SizedBox(width: 14),
                                     Expanded(
                                         child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                          Text(vehicle['name'] as String,
-                                              style: AppTextStyles.cardTitle
-                                                  .copyWith(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w700)),
+                                          Wrap(
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            spacing: 8,
+                                            runSpacing: 4,
+                                            children: [
+                                              Text(vehicle['name'] as String,
+                                                  style: AppTextStyles.cardTitle
+                                                      .copyWith(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w700)),
+                                              _SubscriptionBadge(
+                                                  rights: rights),
+                                            ],
+                                          ),
                                           const SizedBox(height: 3),
                                           Text(
                                               '${(vehicle['plate'] as String?)?.isNotEmpty == true ? vehicle['plate'] : vehicle['serialNumber']}',
                                               style:
                                                   AppTextStyles.bodySecondary),
-                                          const SizedBox(height: 9),
-                                          Wrap(
-                                              crossAxisAlignment:
-                                                  WrapCrossAlignment.center,
-                                              spacing: 8,
-                                              runSpacing: 6,
-                                              children: [
-                                                _SubscriptionBadge(
-                                                    rights: rights),
-                                                Text(label,
-                                                    style: AppTextStyles
-                                                        .bodySecondary
-                                                        .copyWith(
-                                                            color: needsSubscriptionAttention(
-                                                                    rights)
-                                                                ? _attentionInk
-                                                                : AppColors
-                                                                    .textSecondary)),
-                                              ]),
+                                          const SizedBox(height: 7),
+                                          Text(label,
+                                              style: AppTextStyles.bodySecondary
+                                                  .copyWith(
+                                                      color: needsSubscriptionAttention(
+                                                              rights)
+                                                          ? _attentionInk
+                                                          : AppColors
+                                                              .textSecondary)),
                                         ])),
                                     const SizedBox(width: 8),
                                     const Icon(Icons.chevron_right_rounded,
@@ -269,6 +298,37 @@ class _VehicleSubscriptionsViewState
                 ]);
               },
             ),
+      );
+}
+
+class _ProfileSubpageNavigation extends ConsumerWidget {
+  const _ProfileSubpageNavigation();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => BottomNavigationBar(
+        currentIndex: 4,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: _protectionGreen,
+        unselectedItemColor: AppColors.textSecondary,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        onTap: (index) {
+          ref.read(activeTabProvider.notifier).state = index;
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
+        items: const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.directions_car_outlined), label: 'Véhicules'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined), label: 'Carte'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_none_rounded), label: 'Alertes'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_rounded), label: 'Rapports'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded), label: 'Profil'),
+        ],
       );
 }
 
@@ -288,7 +348,7 @@ class _SubscriptionBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-          color: warning ? _attentionSurface : AppColors.pastelGreen,
+          color: warning ? _attentionBadge : _activeBadge,
           borderRadius: BorderRadius.circular(24)),
       child: Text(label,
           style: AppTextStyles.label.copyWith(
@@ -323,8 +383,19 @@ class _Details extends ConsumerWidget {
         ? null
         : '${ends.day.toString().padLeft(2, '0')}/${ends.month.toString().padLeft(2, '0')}/${ends.year}';
     return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('Abonnement')),
+        backgroundColor: _pageBackground,
+        appBar: AppBar(
+          backgroundColor: _pageBackground,
+          centerTitle: false,
+          title: const Text('Abonnement',
+              style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark)),
+        ),
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 600
+            ? const _ProfileSubpageNavigation()
+            : null,
         body: SingleChildScrollView(
             child: ProductPage(
                 child: Column(
@@ -389,16 +460,25 @@ class _Details extends ConsumerWidget {
                   child: Column(children: [
                 if (currentRights.has('live_tracking'))
                   const ListTile(
-                      leading: Icon(Icons.check_circle_outline),
+                      leading: CircleAvatar(
+                          backgroundColor: AppColors.pastelGreen,
+                          child: Icon(Icons.location_on_outlined,
+                              color: _protectionGreen)),
                       title: Text('Localisation en temps réel')),
                 if (currentRights.has('history'))
                   ListTile(
-                      leading: const Icon(Icons.check_circle_outline),
+                      leading: const CircleAvatar(
+                          backgroundColor: AppColors.pastelGreen,
+                          child: Icon(Icons.history_rounded,
+                              color: _protectionGreen)),
                       title: Text(
                           'Historique : ${currentRights.limit('history_retention_days')} jours')),
                 if (currentRights.has('geofence_alerts'))
                   const ListTile(
-                      leading: Icon(Icons.check_circle_outline),
+                      leading: CircleAvatar(
+                          backgroundColor: AppColors.pastelGreen,
+                          child: Icon(Icons.shield_outlined,
+                              color: _protectionGreen)),
                       title: Text('Alertes de zones')),
                 if (!currentRights.accessAllowed)
                   const Padding(

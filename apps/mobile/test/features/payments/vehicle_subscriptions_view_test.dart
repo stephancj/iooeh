@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/payments/views/vehicle_subscriptions_view.dart';
+import 'package:mobile/core/navigation/app_shell.dart';
 
 Map<String, dynamic> row(int id, String name, String plate) => {
       'vehicle': {
@@ -98,6 +99,63 @@ void main() {
     await tester.tap(find.text('Yamaha'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Découvrir les formules'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('bottom navigation returns to the shell and selects the tab',
+      (tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final container = ProviderContainer(overrides: [
+      vehicleSubscriptionsProvider
+          .overrideWith((ref) async => [row(1, 'Yamaha', 'ABC')]),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+          home: Scaffold(
+              body: Builder(
+                  builder: (context) => TextButton(
+                        onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const VehicleSubscriptionsView())),
+                        child: const Text('Ouvrir'),
+                      )))),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carte'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ouvrir'), findsOneWidget);
+    expect(container.read(activeTabProvider), 1);
+  });
+
+  testWidgets('small phone supports enlarged text and subscription navigation',
+      (tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        vehicleSubscriptionsProvider
+            .overrideWith((ref) async => [row(1, 'Yamaha', 'ABC')])
+      ],
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!),
+        home: const VehicleSubscriptionsView(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Profil'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -19,6 +19,8 @@ import '../../../core/layout/responsive_layout.dart';
 
 enum SettingsSection { profile, alerts, payments, referral, deleteAccount }
 
+const _profileBackground = Color(0xFFFAF9F6);
+
 class SettingsView extends ConsumerStatefulWidget {
   const SettingsView({super.key});
 
@@ -109,6 +111,44 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (!isDesktop) ...[
+                Row(children: [
+                  const Text('iooeh',
+                      style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1,
+                          color: AppColors.primaryDark)),
+                  const SizedBox(width: 5),
+                  Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                          color: AppColors.primary, shape: BoxShape.circle)),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: _isEditing
+                        ? 'Annuler les modifications'
+                        : 'Modifier mon profil',
+                    onPressed: _isEditing
+                        ? _cancelEdit
+                        : () => setState(() => _isEditing = true),
+                    icon: Icon(
+                        _isEditing
+                            ? Icons.close_rounded
+                            : Icons.settings_outlined,
+                        color: AppColors.primaryDark),
+                  ),
+                ]),
+                const SizedBox(height: 20),
+                const Text('Profil',
+                    style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.7,
+                        color: AppColors.primaryDark)),
+                const SizedBox(height: 20),
+              ],
               _ProfileSurface(
                 displayName: displayName,
                 email: user?.email ?? '',
@@ -119,11 +159,11 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 phoneController: _phoneController,
                 onSave: _saveProfile,
                 onEdit: () => setState(() => _isEditing = true),
+                onCancel: _cancelEdit,
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(
                 title: 'Votre protection',
-                subtitle: 'Plan actuel et services essentiels.',
               ),
               const SizedBox(height: 10),
               vehiclesAsync.when(
@@ -180,7 +220,6 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               const SizedBox(height: 24),
               const ProductSectionHeader(
                 title: 'Préférences',
-                subtitle: 'Contrôlez la façon dont ioeh vous prévient.',
               ),
               const SizedBox(height: 10),
               ProductSurface(
@@ -207,6 +246,25 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 ),
               ),
               const SizedBox(height: 24),
+              const ProductSectionHeader(title: 'Aide'),
+              const SizedBox(height: 10),
+              ProductSurface(
+                padding: EdgeInsets.zero,
+                child: _SettingsTile(
+                  icon: Icons.help_outline_rounded,
+                  title: 'Besoin d’aide ?',
+                  subtitle: 'Écrivez-nous',
+                  onTap: () async {
+                    final opened = await launchUrl(
+                        Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Écrivez-nous à contact@iooeh.com')));
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
               const ProductSectionHeader(
                 title: 'Promotions & avantages',
                 subtitle: 'Parrainez des amis ou utilisez un code promo.',
@@ -227,25 +285,6 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                       subtitle: 'Appliquer un code à un véhicule',
                       onTap: () => RedeemDialog.show(context)),
                 ]),
-              ),
-              const SizedBox(height: 24),
-              const ProductSectionHeader(title: 'Aide'),
-              const SizedBox(height: 10),
-              ProductSurface(
-                padding: EdgeInsets.zero,
-                child: _SettingsTile(
-                  icon: Icons.help_outline_rounded,
-                  title: 'Besoin d’aide ?',
-                  subtitle: 'Écrivez-nous',
-                  onTap: () async {
-                    final opened = await launchUrl(
-                        Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
-                    if (!opened && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Écrivez-nous à contact@iooeh.com')));
-                    }
-                  },
-                ),
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(title: 'Compte'),
@@ -294,20 +333,8 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
   @override
   Widget build(BuildContext context) {
     final mobileLayout = Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Profil'),
-        actions: [
-          TextButton(
-            onPressed: _isEditing
-                ? _cancelEdit
-                : () => setState(() => _isEditing = true),
-            child: Text(_isEditing ? 'Annuler' : 'Modifier'),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: _buildProfileContent(context, isDesktop: false),
+      backgroundColor: _profileBackground,
+      body: SafeArea(child: _buildProfileContent(context, isDesktop: false)),
     );
 
     Widget activePanel;
@@ -415,6 +442,7 @@ class _ProfileSurface extends StatelessWidget {
   final TextEditingController phoneController;
   final VoidCallback onSave;
   final VoidCallback onEdit;
+  final VoidCallback onCancel;
 
   const _ProfileSurface({
     required this.displayName,
@@ -426,6 +454,7 @@ class _ProfileSurface extends StatelessWidget {
     required this.phoneController,
     required this.onSave,
     required this.onEdit,
+    required this.onCancel,
   });
 
   String get initials {
@@ -533,6 +562,10 @@ class _ProfileSurface extends StatelessWidget {
               label: Text(saving ? 'Enregistrement…' : 'Enregistrer'),
             ),
           ),
+          const SizedBox(height: 8),
+          TextButton(
+              onPressed: saving ? null : onCancel,
+              child: const Text('Annuler')),
         ],
       );
 }
@@ -564,10 +597,10 @@ class _SettingsTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              ProductIcon(
-                icon: icon,
-                color: iconColor,
-                background: iconBackground,
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: iconBackground,
+                child: Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -585,13 +618,12 @@ class _SettingsTile extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.statusAlert.withValues(alpha: .1),
+                              color: const Color(0xFFFFE2A7),
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Text(badge!,
                                 style: AppTextStyles.label.copyWith(
-                                    color: AppColors.statusAlert,
+                                    color: const Color(0xFF855000),
                                     fontWeight: FontWeight.w700)),
                           ),
                       ],
