@@ -1,63 +1,129 @@
 ---
+import { Content, getHeadings } from '../content/cgus.md';
 import Layout from '../layouts/Layout.astro';
 import '../styles/utility-pages.css';
+
+const title = 'Conditions générales d’utilisation et de service';
+const headings = getHeadings();
 ---
 
-<Layout title="Conditions | iooeh">
+<Layout title={`${title} | iooeh`}>
   <main id="content" class="utility-page">
     <div class="utility-shell">
       <div class="utility-links">
         <a class="utility-link" href="/">Retour à l’accueil</a>
-        <a class="utility-link" href="https://iooeh.com">Ouvrir iooeh</a>
       </div>
 
-      <article class="utility-card">
-        <p class="utility-eyebrow">Conditions</p>
-        <h1>iooeh avance par étapes, avec une promesse simple: montrer ce qui est vraiment prêt.</h1>
-        <p class="utility-intro">
-          Cette version de la landing présente un produit en ouverture progressive. Les fonctions montrées
-          correspondent à la direction réelle du service, avec une distinction claire entre ce qui est en
-          service, ce qui arrive bientôt et ce qui viendra ensuite.
+      <article class="utility-card terms">
+        <p class="utility-eyebrow">iooeh · Version 1.1 · Novembre 2026</p>
+        <h1>{title}</h1>
+        <p class="utility-intro">Plateforme de géolocalisation, de suivi et de protection de véhicules</p>
+        <p class="terms-contact">
+          Antananarivo, Madagascar · <a href="mailto:contact@iooeh.com">contact@iooeh.com</a>
         </p>
+        <a class="utility-link terms-download" href="/cgus-iooeh-v1.1.pdf" download>
+          Télécharger les CGUS (PDF)
+        </a>
 
-        <div class="utility-stack">
-          <section class="utility-section">
-            <h2>Accès</h2>
+        <details class="terms-index">
+          <summary>Sommaire</summary>
+          <nav aria-label="Sommaire des CGUS">
             <ul>
-              <li>L’accès au produit peut se faire d’abord en petit groupe.</li>
-              <li>Le rythme d’ouverture dépend de la qualité de mise en route et de l’accompagnement.</li>
-              <li>La landing ne garantit pas encore un accès immédiat pour tout le monde.</li>
+              {headings.map(({ slug, text }) => <li><a href={`#${slug}`}>{text}</a></li>)}
             </ul>
-          </section>
+          </nav>
+        </details>
 
-          <section class="utility-section">
-            <h2>Usage</h2>
-            <ul>
-              <li>Le service aide à suivre un véhicule, revoir ses trajets et recevoir des alertes.</li>
-              <li>Il ne remplace pas le jugement humain quand une situation demande une vérification terrain.</li>
-              <li>Les fonctions visibles peuvent évoluer pendant la phase d’ouverture.</li>
-            </ul>
-          </section>
-
-          <section class="utility-section">
-            <h2>Communication</h2>
-            <ul>
-              <li>Les prochaines ouvertures seront annoncées quand elles seront réellement prêtes.</li>
-              <li>Les conditions finales d’accès seront précisées au moment de l’ouverture large.</li>
-              <li>iooeh préfère annoncer peu mais clairement plutôt que promettre trop tôt.</li>
-            </ul>
-          </section>
-
-          <section class="utility-section utility-contact">
-            <p class="utility-contact-label">Contact</p>
-            <h2>Une question sur le service ou ses conditions&nbsp;?</h2>
-            <p>
-              Écrivez-nous à
-              <a href="mailto:contact@iooeh.com">contact@iooeh.com</a>.
-            </p>
-          </section>
+        <div class="terms-body">
+          <Content />
         </div>
       </article>
     </div>
   </main>
 </Layout>
+
+<style>
+  .terms h1 {
+    max-width: 24ch;
+    line-height: 1.05;
+  }
+
+  .terms-contact {
+    margin-top: 0.5rem;
+    color: var(--ink-strong);
+  }
+
+  .terms-contact a,
+  .terms-index a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .terms-download {
+    margin-top: 1rem;
+  }
+
+  .terms-index {
+    margin-block: 2rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.8rem;
+    background: var(--mist);
+  }
+
+  .terms-index summary {
+    cursor: pointer;
+    font-weight: 650;
+  }
+
+  .terms-index ul {
+    list-style: none;
+    display: grid;
+    gap: 0.55rem 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .terms-body {
+    max-width: 72ch;
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .terms-body :global(h2) {
+    scroll-margin-top: 1rem;
+    margin: 2rem 0 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font: 700 clamp(1.15rem, 3vw, 1.55rem) / 1.2 var(--font-display);
+  }
+
+  .terms-body :global(p + p),
+  .terms-body :global(ul + p),
+  .terms-body :global(blockquote + p) {
+    margin-top: 0.75rem;
+  }
+
+  .terms-body :global(ul) {
+    list-style: disc;
+    padding-inline-start: 1.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .terms-body :global(blockquote) {
+    padding: 1rem;
+    border-inline-start: 0.2rem solid var(--brand-strong);
+    background: var(--brand-soft);
+  }
+
+  @media (min-width: 640px) {
+    .terms-index ul {
+      display: block;
+      columns: 2;
+    }
+
+    .terms-index li {
+      break-inside: avoid;
+      padding-bottom: 0.55rem;
+    }
+  }
+</style>

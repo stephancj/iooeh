@@ -15,6 +15,7 @@ import '../../promotions/redeem_dialog.dart';
 import '../../promotions/referral_view.dart';
 import 'alert_settings_view.dart';
 import 'delete_account_view.dart';
+import 'terms_view.dart' if (dart.library.js_interop) 'terms_view_web.dart';
 import '../../../core/layout/responsive_layout.dart';
 
 enum SettingsSection { profile, alerts, payments, referral, deleteAccount }
@@ -278,18 +279,28 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               const SizedBox(height: 12),
               ProductSurface(
                 padding: EdgeInsets.zero,
-                child: _SettingsTile(
-                  icon: Icons.help_outline_rounded,
-                  title: 'Besoin d’aide ? Écrivez-nous',
-                  onTap: () async {
-                    final opened = await launchUrl(
-                        Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
-                    if (!opened && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Écrivez-nous à contact@iooeh.com')));
-                    }
-                  },
-                ),
+                child: Column(children: [
+                  _SettingsTile(
+                    icon: Icons.help_outline_rounded,
+                    title: 'Besoin d’aide ? Écrivez-nous',
+                    onTap: () async {
+                      final opened = await launchUrl(
+                          Uri(scheme: 'mailto', path: 'contact@iooeh.com'));
+                      if (!opened && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Écrivez-nous à contact@iooeh.com')));
+                      }
+                    },
+                  ),
+                  _SettingsTile(
+                    icon: Icons.description_outlined,
+                    title: 'Conditions d’utilisation',
+                    onTap: () =>
+                        openTerms(context, Uri.https('iooeh.com', '/terms/')),
+                  ),
+                ]),
               ),
               const SizedBox(height: 24),
               const ProductSectionHeader(
